@@ -1,41 +1,159 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGame } from "./state/useGame";
 import type { TerritoryId } from "@risk/shared";
-import { Board } from "./components/Board";
 import { demoMap } from "@risk/shared";
-import { useEffect } from "react";
-
-
-
+import { Board } from "./components/Board";
 
 export default function App() {
   const { playerId, game, lastError, send } = useGame();
+
   const [gameId, setGameId] = useState("ABCD");
   const [name, setName] = useState("Jonas");
-  const [placeAmount, setPlaceAmount] = useState(1);
+
+  // Selections
   const [selectedTerritory, setSelectedTerritory] = useState<TerritoryId | null>(null);
+
+  // Attack
   const [attackFrom, setAttackFrom] = useState<TerritoryId | null>(null);
   const [attackTo, setAttackTo] = useState<TerritoryId | null>(null);
   const [attackerDice, setAttackerDice] = useState<1 | 2 | 3>(3);
+
+  // Conquest move
   const [conquestMoveAmount, setConquestMoveAmount] = useState<number>(1);
-  const myTerritories = useMemo(() => {if (!game || !playerId) return [];
+
+  // Fortify
+  const [fortifyFrom, setFortifyFrom] = useState<TerritoryId | null>(null);
+  const [fortifyTo, setFortifyTo] = useState<TerritoryId | null>(null);
+  const [fortifyAmount, setFortifyAmount] = useState<number>(1);
+
+  const canStart = game?.status === "lobby" && game.hostId === playerId;
+  const isMyTurn = !!game && game.status === "running" && game.currentPlayerId === playerId;
+
+  // Useful lists (optional UI/debug)
+  const myTerritories = useMemo(() => {
+    if (!game || !playerId) return [];
     return Object.entries(game.territories)
       .filter(([, t]) => t.ownerId === playerId)
       .map(([id]) => id);
   }, [game, playerId]);
-  const canStart = game?.status === "lobby" && game.hostId === playerId;
-  const isMyTurn = !!game && game.status === "running" && game.currentPlayerId === playerId;
 
+  // Keep conquest slider synced to min move when it appears
+  useEffect(() => {
+    if (!game?.pendingConquest) return;
+    setConquestMoveAmount(game.pendingConquest.minMove);
+  }, [game?.pendingConquest]);
+
+  // Reset action selections when turn or phase changes (and when it's not your turn)
   useEffect(() => {
     if (!game) return;
 
     const myTurnNow = game.status === "running" && game.currentPlayerId === playerId;
 
-    if (!myTurnNow || game.phase !== "attack") {
+    if (!myTurnNow) {
+      setAttackFrom(null);
+      setAttackTo(null);
+      setFortifyFrom(null);
+      setFortifyTo(null);
+      return;
+    }
+
+    if (game.phase !== "attack") {
       setAttackFrom(null);
       setAttackTo(null);
     }
+
+    if (game.phase !== "fortify") {
+      setFortifyFrom(null);
+      setFortifyTo(null);
+    }
   }, [game?.phase, game?.currentPlayerId, game?.status, playerId]);
+
+  const boardMode =
+    game?.status === "running" && isMyTurn
+      ? game.phase === "reinforcement"
+        ? "reinforcement"
+        : game.phase === "attack"
+          ? "attack"
+          : game.phase === "fortify"
+            ? "fortify"
+            : "none"
+      : "none";
+
+  function handleBoardSelect(id: TerritoryId) {
+    setSelectedTerritory(id);
+
+    if (!game || !playerId || !isMyTurn) return;
+
+    // Reinforcement: Board should already limit clickability; still keep it safe here.
+    if (game.phase === "reinforcement") {
+      const owner = game.territories[id]?.ownerId;
+      if (owner === playerId && game.reinforcementPool > 0) {
+        send({ type: "reinforcement/place", gameId, territoryId: id, amount: 1 });
+      }
+      return;
+    }
+
+    // Attack: selection (blocked if conquest move pending)
+    if (game.phase === "attack") {
+      if (game.pendingConquest) return;
+
+      const owner = game.territories[id]?.ownerId;
+
+      if (!attackFrom) {
+        if (owner === playerId && (game.territories[id]?.troops ?? 0) >= 2) {
+          setAttackFrom(id);
+          setAttackTo(null);
+        }
+        return;
+      }
+
+      if (!attackTo) {
+        if (id === attackFrom) return;
+
+        const neighbors = demoMap.territories.find((t) => t.id === attackFrom)?.neighbors ?? [];
+        const isValidTo = neighbors.includes(id) && owner !== null && owner !== playerId;
+
+        if (isValidTo) setAttackTo(id);
+        return;
+      }
+
+      // Quick reset: clicking your territory starts a new "from", otherwise clear target
+      if (owner === playerId && (game.territories[id]?.troops ?? 0) >= 2) {
+        setAttackFrom(id);
+        setAttackTo(null);
+      } else {
+        setAttackTo(null);
+      }
+      return;
+    }
+
+    // Fortify: selection
+    if (game.phase === "fortify") {
+      if (game.pendingConquest) return;
+
+      const owner = game.territories[id]?.ownerId;
+      if (owner !== playerId) return;
+
+      if (!fortifyFrom) {
+        if ((game.territories[id]?.troops ?? 0) >= 2) {
+          setFortifyFrom(id);
+          setFortifyTo(null);
+          setFortifyAmount(1);
+        }
+        return;
+      }
+
+      if (!fortifyTo) {
+        if (id !== fortifyFrom) setFortifyTo(id);
+        return;
+      }
+
+      // Quick reset
+      setFortifyFrom(id);
+      setFortifyTo(null);
+      setFortifyAmount(1);
+    }
+  }
 
   return (
     <div style={{ padding: 16, fontFamily: "system-ui, sans-serif", maxWidth: 900 }}>
@@ -64,7 +182,8 @@ export default function App() {
           Start (host)
         </button>
 
-        <button onClick={() => send({ type: "turn/endPhase", gameId })}
+        <button
+          onClick={() => send({ type: "turn/endPhase", gameId })}
           disabled={
             !game ||
             game.status !== "running" ||
@@ -85,70 +204,48 @@ export default function App() {
       <hr style={{ margin: "16px 0" }} />
 
       <div>
-        <div><strong>Your playerId:</strong> {playerId ?? "(connecting...)"}</div>
-        <div><strong>Game status:</strong> {game?.status ?? "(no game)"}</div>
-        <div><strong>Host:</strong> {game?.hostId ?? "-"}</div>
-        <div><strong>Current player:</strong> {game?.currentPlayerId ?? "-"}</div>
-        <div><strong>Phase:</strong> {game?.phase ?? "-"}</div>
-        <div><strong>Reinforcement pool:</strong> {game?.reinforcementPool ?? 0}</div>
+        <div>
+          <strong>Your playerId:</strong> {playerId ?? "(connecting...)"}
+        </div>
+        <div>
+          <strong>Game status:</strong> {game?.status ?? "(no game)"}
+        </div>
+        <div>
+          <strong>Host:</strong> {game?.hostId ?? "-"}
+        </div>
+        <div>
+          <strong>Current player:</strong> {game?.currentPlayerId ?? "-"}
+        </div>
+        <div>
+          <strong>Phase:</strong> {game?.phase ?? "-"}
+        </div>
+        <div>
+          <strong>Reinforcement pool:</strong> {game?.reinforcementPool ?? 0}
+        </div>
+        {!!game && (
+          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
+            Your territories (debug): {myTerritories.length ? myTerritories.join(", ") : "(none)"}
+          </div>
+        )}
       </div>
+
       {game && (
         <>
           <h2 style={{ marginTop: 16 }}>Board</h2>
           <Board
             game={game}
-            selected={selectedTerritory}
             playerId={playerId}
+            mode={boardMode}
             attackFrom={attackFrom}
             attackTo={attackTo}
-            onSelect={(id) => {
-              setSelectedTerritory(id);
-              if (!game || !playerId) return;
-
-              // Reinforcement: click your territory to place +1
-              if (game.status === "running" && game.phase === "reinforcement") {
-                const owner = game.territories[id]?.ownerId;
-                const isMyTurn = game.currentPlayerId === playerId;
-
-                if (isMyTurn && owner === playerId && game.reinforcementPool > 0) {
-                  send({ type: "reinforcement/place", gameId, territoryId: id, amount: 1 });
-                }
-                return;
-              }
-
-              // Attack: selection logic (blocked if conquest move pending)
-              if (game.status === "running" && game.phase === "attack") {
-                if (game.pendingConquest) return;
-
-                const owner = game.territories[id]?.ownerId;
-
-                // If no from selected -> pick one of yours with >=2 troops
-                if (!attackFrom) {
-                  if (owner === playerId && (game.territories[id]?.troops ?? 0) >= 2) setAttackFrom(id);
-                  return;
-                }
-
-                // If from selected but no to selected -> only allow valid enemy neighbor
-                if (!attackTo) {
-                  const neighbors = demoMap.territories.find((t) => t.id === attackFrom)?.neighbors ?? [];
-                  const isValidTo =
-                    neighbors.includes(id) &&
-                    owner !== null &&
-                    owner !== playerId;
-
-                  if (isValidTo) setAttackTo(id);
-                  return;
-                }
-
-                // Third click: quick reset behavior
-                setAttackFrom(owner === playerId ? id : null);
-                setAttackTo(null);
-              }
-            }}
+            fortifyFrom={fortifyFrom}
+            fortifyTo={fortifyTo}
+            onTerritoryClick={handleBoardSelect}
           />
         </>
       )}
 
+      {/* Only show the current action UI when it's your turn */}
       {game?.status === "running" && isMyTurn && game.phase === "reinforcement" && (
         <>
           <h2 style={{ marginTop: 16 }}>Reinforcement</h2>
@@ -156,7 +253,7 @@ export default function App() {
             <strong>Troops available:</strong> {game.reinforcementPool}
           </div>
           <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
-            Click one of your territories on the board to place +1 troop.
+            Click a highlighted territory on the board to place +1 troop.
           </div>
         </>
       )}
@@ -167,8 +264,7 @@ export default function App() {
 
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div>
-              <strong>From:</strong> {attackFrom ?? "-"}{" "}
-              <strong>To:</strong> {attackTo ?? "-"}
+              <strong>From:</strong> {attackFrom ?? "-"} <strong>To:</strong> {attackTo ?? "-"}
             </div>
 
             <label>
@@ -206,13 +302,12 @@ export default function App() {
           </div>
 
           <div style={{ marginTop: 8, fontSize: 13, opacity: 0.8 }}>
-            Tip: Click one of your territories (From), then click a neighbor enemy territory (To).
+            Tip: pick a highlighted origin territory, then a highlighted enemy neighbor.
           </div>
-
-          {game.pendingConquest && null}
         </>
       )}
 
+      {/* Conquest move: visible only when it exists; server may auto-resolve if min==max */}
       {game?.pendingConquest && (
         <div style={{ marginTop: 10, padding: 10, border: "1px solid #ccc", borderRadius: 10 }}>
           <div style={{ fontWeight: 700 }}>Conquest move required</div>
@@ -229,8 +324,7 @@ export default function App() {
               onChange={(e) => setConquestMoveAmount(Number(e.target.value))}
             />
             <div>
-              <strong>{conquestMoveAmount}</strong>{" "}
-              (min {game.pendingConquest.minMove}, max {game.pendingConquest.maxMove})
+              <strong>{conquestMoveAmount}</strong> (min {game.pendingConquest.minMove}, max {game.pendingConquest.maxMove})
             </div>
 
             <button
@@ -243,7 +337,7 @@ export default function App() {
                   amount: conquestMoveAmount
                 })
               }
-              disabled={game.currentPlayerId !== playerId || game.phase !== "attack"}
+              disabled={!isMyTurn || game.phase !== "attack"}
             >
               Confirm move
             </button>
@@ -254,8 +348,49 @@ export default function App() {
       {game?.status === "running" && isMyTurn && game.phase === "fortify" && (
         <>
           <h2 style={{ marginTop: 16 }}>Fortify</h2>
-          <div style={{ fontSize: 13, opacity: 0.8 }}>
-            (Next: move troops once between connected territories.)
+
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <strong>From:</strong> {fortifyFrom ?? "-"} <strong>To:</strong> {fortifyTo ?? "-"}
+            </div>
+
+            {fortifyFrom && (
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <input
+                  type="range"
+                  min={1}
+                  max={Math.max(1, (game.territories[fortifyFrom]?.troops ?? 1) - 1)}
+                  value={fortifyAmount}
+                  onChange={(e) => setFortifyAmount(Number(e.target.value))}
+                />
+                <div>
+                  <strong>{fortifyAmount}</strong>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                if (!fortifyFrom || !fortifyTo) return;
+                send({ type: "fortify/move", gameId, from: fortifyFrom, to: fortifyTo, amount: fortifyAmount });
+              }}
+              disabled={!fortifyFrom || !fortifyTo}
+            >
+              Confirm fortify
+            </button>
+
+            <button
+              onClick={() => {
+                setFortifyFrom(null);
+                setFortifyTo(null);
+              }}
+            >
+              Clear
+            </button>
+          </div>
+
+          <div style={{ marginTop: 8, fontSize: 13, opacity: 0.8 }}>
+            Tip: pick a highlighted “From” territory (at least 2 troops), then a highlighted “To” territory (connected owned path).
           </div>
         </>
       )}

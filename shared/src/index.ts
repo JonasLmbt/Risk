@@ -5,3 +5,4 @@ export * from "./protocol/actions";
 export * from "./protocol/events";
 export * from "./utils/assert";
 export * from "./map/demoMap";
+export * from "./map/demoLayout";
