@@ -16,6 +16,7 @@ export function createGame(id: string): GameState {
     phase: "reinforcement",
     territories,
     reinforcementPool: 0,
-    log: []
+    log: [],
+    pendingConquest: null
   };
 }

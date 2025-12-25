@@ -79,10 +79,22 @@ export default function App() {
           <Board
             game={game}
             selected={selectedTerritory}
+            playerId={playerId}
+            attackFrom={attackFrom}
+            attackTo={attackTo}
             onSelect={(id) => {
               setSelectedTerritory(id);
 
               if (!game || !playerId) return;
+
+              if (game.status === "running" && game.phase === "reinforcement") {
+                const owner = game.territories[id]?.ownerId;
+                const isMyTurn = game.currentPlayerId === playerId;
+
+                if (isMyTurn && owner === playerId && game.reinforcementPool > 0) {
+                  send({ type: "reinforcement/place", gameId, territoryId: id, amount: 1 });
+                }
+              }
 
               // Build attack selection in attack phase
               if (game.status === "running" && game.phase === "attack") {
@@ -122,6 +134,13 @@ export default function App() {
               />
             </label>
 
+            <div style={{ marginTop: 6 }}>
+              <strong>Troops available:</strong> {game.reinforcementPool}
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
+              Click one of your territories on the board to place +1 troop.
+            </div>
+
             <div>
               <strong>Your territories:</strong>{" "}
               {myTerritories.length ? myTerritories.join(", ") : "(none)"}
@@ -149,7 +168,7 @@ export default function App() {
           </div>
         </>
       )}
-
+      
       {game?.status === "running" && (
         <>
           <h2 style={{ marginTop: 16 }}>Attack</h2>
@@ -201,6 +220,49 @@ export default function App() {
             Tip: Click one of your territories (From), then click a neighbor enemy territory (To).
           </div>
         </>
+      )}
+
+      {game?.pendingConquest && (
+        <div style={{ marginTop: 10, padding: 10, border: "1px solid #ccc", borderRadius: 10 }}>
+          <div style={{ fontWeight: 700 }}>Conquest move required</div>
+          <div>
+            From <strong>{game.pendingConquest.from}</strong> to <strong>{game.pendingConquest.to}</strong>
+          </div>
+          <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              onClick={() =>
+                send({
+                  type: "attack/move",
+                  gameId,
+                  from: game.pendingConquest!.from,
+                  to: game.pendingConquest!.to,
+                  amount: game.pendingConquest!.minMove
+                })
+              }
+              disabled={game.currentPlayerId !== playerId || game.phase !== "attack"}
+            >
+              Move min ({game.pendingConquest.minMove})
+            </button>
+
+            <button
+              onClick={() =>
+                send({
+                  type: "attack/move",
+                  gameId,
+                  from: game.pendingConquest!.from,
+                  to: game.pendingConquest!.to,
+                  amount: game.pendingConquest!.maxMove
+                })
+              }
+              disabled={game.currentPlayerId !== playerId || game.phase !== "attack"}
+            >
+              Move max ({game.pendingConquest.maxMove})
+            </button>
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>
+            (MVP: quick buttons. Slider kommt als nächstes, wenn Du willst.)
+          </div>
+        </div>
       )}
 
       <h2 style={{ marginTop: 16 }}>State</h2>

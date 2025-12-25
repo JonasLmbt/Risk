@@ -48,6 +48,7 @@ export function attackRoll(
   if (state.status !== "running") return state;
   if (state.phase !== "attack") return state;
   if (state.currentPlayerId !== playerId) return state;
+  if (state.pendingConquest) return state;
 
   const fromState = state.territories[from];
   const toState = state.territories[to];
@@ -83,18 +84,24 @@ export function attackRoll(
 
   if (next.territories[to].troops <= 0) {
     conquered = true;
+
+    // Territory is conquered but troops are not moved yet
     next.territories[to].ownerId = playerId;
+    next.territories[to].troops = 0;
 
-    // MVP troop move rule: move at least attackerDice, at most fromTroops-1
-    const maxMove = next.territories[from].troops - 1;
-    const move = Math.max(1, Math.min(attackerDice, maxMove));
+    const maxMove = Math.max(1, next.territories[from].troops - 1);
+    const minMove = Math.min(attackerDice, maxMove);
 
-    next.territories[from].troops -= move;
-    next.territories[to].troops = move;
+    next.pendingConquest = {
+      from,
+      to,
+      minMove,
+      maxMove
+    };
   }
 
   next.log.push(
-    `ATTACK ${from} -> ${to} | A:${resolved.attackerRolls.join(",")} vs D:${resolved.defenderRolls.join(",")} | losses A:${resolved.attackerLosses} D:${resolved.defenderLosses}${conquered ? " | CONQUERED" : ""}`
+    `ATTACK ${from} -> ${to} | Att:${resolved.attackerRolls.join(",")} vs Def:${resolved.defenderRolls.join(",")} | losses Att:${resolved.attackerLosses} Def:${resolved.defenderLosses}${conquered ? " | CONQUERED" : ""}`
   );
 
   return next;

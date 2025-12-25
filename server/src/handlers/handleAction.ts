@@ -4,6 +4,8 @@ import { startGame } from "../game/rules/startGame";
 import { advancePhase } from "../game/rules/advancePhase";
 import { placeReinforcements } from "../game/rules/placeReinforcements";
 import { attackRoll } from "../game/rules/attack";
+import { resolveConquestMove } from "../game/rules/resolveConquestMove";
+
 
 
 export function handleAction(envelope: ClientActionEnvelope): {
@@ -78,11 +80,21 @@ export function handleAction(envelope: ClientActionEnvelope): {
     setGame(action.gameId, next);
     return { gameId: action.gameId, newState: next };
   }
+
   if (action.type === "attack/roll") {
     const game = getGame(action.gameId);
     if (!game) return { gameId: action.gameId, error: "Game not found." };
 
     const next = attackRoll(game, playerId, action.from, action.to, action.attackerDice);
+    setGame(action.gameId, next);
+    return { gameId: action.gameId, newState: next };
+  }
+
+  if (action.type === "attack/move") {
+    const game = getGame(action.gameId);
+    if (!game) return { gameId: action.gameId, error: "Game not found." };
+
+    const next = resolveConquestMove(game, playerId, action.from, action.to, action.amount);
     setGame(action.gameId, next);
     return { gameId: action.gameId, newState: next };
   }
