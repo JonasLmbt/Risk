@@ -1,8 +1,8 @@
 import type { GameState, TerritoryId } from "@risk/shared";
-import { demoMap } from "@risk/shared";
+import { currentMap } from "@risk/shared";
 
 function neighborsOf(id: TerritoryId): TerritoryId[] {
-  return demoMap.territories.find((t) => t.id === id)?.neighbors ?? [];
+  return currentMap.territories.find((t) => t.id === id)?.neighbors ?? [];
 }
 
 // BFS over owned territories

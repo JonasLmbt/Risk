@@ -1,9 +1,9 @@
 import type { GameState } from "@risk/shared";
-import { demoMap } from "@risk/shared";
+import { currentMap  } from "@risk/shared";
 
 export function createGame(id: string): GameState {
   const territories: GameState["territories"] = {};
-  for (const t of demoMap.territories) {
+  for (const t of currentMap .territories) {
     territories[t.id] = { ownerId: null, troops: 0 };
   }
 
@@ -16,8 +16,8 @@ export function createGame(id: string): GameState {
     phase: "reinforcement",
     territories,
     reinforcementPool: 0,
-    log: [],
     pendingConquest: null,
     fortifyUsed: false,
+    log: []
   };
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useGame } from "./state/useGame";
 import type { TerritoryId } from "@risk/shared";
-import { demoMap } from "@risk/shared";
+import { currentMap } from "@risk/shared";
 import { Board } from "./components/Board";
 
 export default function App() {
@@ -99,7 +99,10 @@ export default function App() {
 
       const owner = game.territories[id]?.ownerId;
 
+      // pick from
       if (!attackFrom) {
+        // Board clickable only makes valid ‘from’ territories here,
+        // but we leave the security check in:
         if (owner === playerId && (game.territories[id]?.troops ?? 0) >= 2) {
           setAttackFrom(id);
           setAttackTo(null);
@@ -107,17 +110,15 @@ export default function App() {
         return;
       }
 
+      // pick to
       if (!attackTo) {
         if (id === attackFrom) return;
-
-        const neighbors = demoMap.territories.find((t) => t.id === attackFrom)?.neighbors ?? [];
-        const isValidTo = neighbors.includes(id) && owner !== null && owner !== playerId;
-
-        if (isValidTo) setAttackTo(id);
+        // IMPORTANT: trust Board – it only calls us for valid targets
+        setAttackTo(id);
         return;
       }
 
-      // Quick reset: clicking your territory starts a new "from", otherwise clear target
+      // quick reset
       if (owner === playerId && (game.territories[id]?.troops ?? 0) >= 2) {
         setAttackFrom(id);
         setAttackTo(null);
@@ -144,14 +145,15 @@ export default function App() {
       }
 
       if (!fortifyTo) {
-        if (id !== fortifyFrom) setFortifyTo(id);
+        if (id === fortifyFrom) return;
+        setFortifyTo(id); // trust Board
         return;
       }
 
-      // Quick reset
       setFortifyFrom(id);
       setFortifyTo(null);
       setFortifyAmount(1);
+      return;
     }
   }
 

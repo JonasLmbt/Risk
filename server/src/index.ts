@@ -32,6 +32,10 @@ io.on("connection", (socket) => {
 
     const result = handleAction(env);
 
+    if (result.gameId) {
+      socket.join(result.gameId);
+    }
+
     if (result.error) {
       const evt: ServerEvent = { type: "game/error", gameId: result.gameId, message: result.error };
       socket.emit("event", evt);

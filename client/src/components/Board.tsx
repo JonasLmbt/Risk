@@ -1,5 +1,5 @@
 import type { GameState, TerritoryId } from "@risk/shared";
-import { demoLayout, demoMap } from "@risk/shared";
+import { currentMap, currentMapLayout } from "@risk/shared";
 
 type BoardMode = "none" | "reinforcement" | "attack" | "fortify";
 
@@ -29,7 +29,7 @@ function colorForPlayer(game: GameState, ownerId: string | null): string {
 }
 
 function neighborsOf(id: TerritoryId): TerritoryId[] {
-  return demoMap.territories.find((t) => t.id === id)?.neighbors ?? [];
+  return currentMap.territories.find((t) => t.id === id)?.neighbors ?? [];
 }
 
 function isConnectedOwned(game: GameState, playerId: string, from: TerritoryId, to: TerritoryId): boolean {
@@ -140,7 +140,7 @@ export function Board({
   // Determine clickability + opacity per territory
   const territoryUi = new Map<TerritoryId, { clickable: boolean; opacity: number; selected: boolean }>();
 
-  for (const l of demoLayout) {
+  for (const l of currentMapLayout) {
     const id = l.id;
     let clickable = false;
     let opacity = 0.35;
@@ -187,7 +187,7 @@ export function Board({
   // Draw neighbor lines
   const edges: Array<{ a: TerritoryId; b: TerritoryId }> = [];
   const seen = new Set<string>();
-  for (const t of demoMap.territories) {
+  for (const t of currentMap.territories) {
     for (const nb of t.neighbors) {
       const key = [t.id, nb].sort().join("-");
       if (seen.has(key)) continue;
@@ -197,11 +197,13 @@ export function Board({
   }
 
   const centers = new Map<TerritoryId, { x: number; y: number }>();
-  for (const l of demoLayout) centers.set(l.id, centerOf(l.points));
+  for (const l of currentMapLayout) {
+    centers.set(l.id, { x: l.labelX, y: l.labelY });
+  }
 
   return (
     <div style={{ marginTop: 12 }}>
-      <svg viewBox="0 0 740 260" width="100%" style={{ maxWidth: 900, display: "block" }}>
+      <svg viewBox="0 0 1200 620" width="100%" style={{ maxWidth: 1000, display: "block" }}>
         {/* neighbor lines behind territories */}
         <g opacity={0.35}>
           {edges.map((e) => {
@@ -212,7 +214,7 @@ export function Board({
         </g>
 
         {/* territories */}
-        {demoLayout.map((l) => {
+        {currentMapLayout.map((l) => {
           const id = l.id;
           const st = game.territories[id];
           const owner = st?.ownerId ?? null;
@@ -223,11 +225,11 @@ export function Board({
 
           return (
             <g key={id}>
-              <polygon
-                points={l.points}
+              <path
+                d={l.d}
                 fill={fill}
                 opacity={ui.opacity}
-                stroke="#333"
+                stroke="#2b2b2b"
                 strokeWidth={1.5}
                 style={{ cursor: ui.clickable ? "pointer" : "default" }}
                 onClick={() => {
@@ -236,10 +238,7 @@ export function Board({
                 }}
               />
               {/* selection overlay (subtle) */}
-              {ui.selected && (
-                <polygon points={l.points} fill="#000" opacity={0.08} stroke="#000" strokeWidth={2} />
-              )}
-
+              {ui.selected && <path d={l.d} fill="#000" opacity={0.08} stroke="#000" strokeWidth={2} />}
               {/* labels */}
               <text x={l.labelX} y={l.labelY} fontSize={14} fontWeight={700} fill="#111">
                 {id}

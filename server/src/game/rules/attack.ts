@@ -1,5 +1,5 @@
 import type { GameState, TerritoryId } from "@risk/shared";
-import { demoMap } from "@risk/shared";
+import { currentMap } from "@risk/shared";
 
 type RollResult = {
   attackerRolls: number[];
@@ -10,7 +10,7 @@ type RollResult = {
 };
 
 function isNeighbor(from: TerritoryId, to: TerritoryId): boolean {
-  const def = demoMap.territories.find((t) => t.id === from);
+  const def = currentMap.territories.find((t) => t.id === from);
   return def ? def.neighbors.includes(to) : false;
 }
 

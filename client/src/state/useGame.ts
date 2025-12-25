@@ -9,6 +9,7 @@ export function useGame() {
 
   useEffect(() => {
     function onEvent(evt: ServerEvent) {
+      console.log("[CLIENT] got event", evt);
       if (evt.type === "player/identified") {
         setPlayerId(evt.playerId);
       } else if (evt.type === "game/state") {
@@ -34,6 +35,7 @@ export function useGame() {
       action
     };
 
+    console.log("[CLIENT] sending action", action);
     socket.emit("action", envelope);
   }
 
