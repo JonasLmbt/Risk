@@ -33,4 +33,6 @@ export type GameState = {
     minMove: number;
     maxMove: number;
   };
+  
+  fortifyUsed: boolean;
 };

@@ -31,5 +31,7 @@ export function advancePhase(state: GameState): GameState {
   next.reinforcementPool = 3;
   next.log.push(`Turn passed to ${next.currentPlayerId}`);
   next.log.push("Phase changed: reinforcement");
+  next.fortifyUsed = false;
+  next.pendingConquest = null;
   return next;
 }

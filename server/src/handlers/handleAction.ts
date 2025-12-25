@@ -5,7 +5,7 @@ import { advancePhase } from "../game/rules/advancePhase";
 import { placeReinforcements } from "../game/rules/placeReinforcements";
 import { attackRoll } from "../game/rules/attack";
 import { resolveConquestMove } from "../game/rules/resolveConquestMove";
-
+import { fortifyMove } from "../game/rules/fortify";
 
 
 export function handleAction(envelope: ClientActionEnvelope): {
@@ -98,6 +98,16 @@ export function handleAction(envelope: ClientActionEnvelope): {
     setGame(action.gameId, next);
     return { gameId: action.gameId, newState: next };
   }
+
+  if (action.type === "fortify/move") {
+    const game = getGame(action.gameId);
+    if (!game) return { gameId: action.gameId, error: "Game not found." };
+
+    const next = fortifyMove(game, playerId, action.from, action.to, action.amount);
+    setGame(action.gameId, next);
+    return { gameId: action.gameId, newState: next };
+  }
+
 
 
   // Exhaustive check (if you add actions, TypeScript will complain here if not handled)

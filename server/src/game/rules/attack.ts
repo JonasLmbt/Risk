@@ -68,7 +68,7 @@ export function attackRoll(
     Math.min(3, requestedAttackerDice, fromState.troops - 1)
   ) as 1 | 2 | 3;
 
-  const defenderDice = Math.max(1, Math.min(2, toState.troops));
+  const defenderDice = toState.troops >= 2 ? 2 : 1;
 
   const attackerRolls = rollDice(attackerDice);
   const defenderRolls = rollDice(defenderDice);
@@ -92,12 +92,17 @@ export function attackRoll(
     const maxMove = Math.max(1, next.territories[from].troops - 1);
     const minMove = Math.min(attackerDice, maxMove);
 
-    next.pendingConquest = {
-      from,
-      to,
-      minMove,
-      maxMove
-    };
+    next.pendingConquest = { from, to, minMove, maxMove };
+    if (minMove === maxMove) {
+      // auto-resolve: no choice
+      const move = minMove;
+
+      next.territories[from].troops -= move;
+      next.territories[to].troops = move;
+
+      next.pendingConquest = null;
+      next.log.push(`AUTO MOVE after conquest ${from} -> ${to} | moved ${move}`);
+    }
   }
 
   next.log.push(

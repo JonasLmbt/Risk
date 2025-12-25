@@ -37,6 +37,13 @@ export type ClientAction =
       from: TerritoryId;
       to: TerritoryId;
       amount: number;
+    }
+  | {
+      type: "fortify/move";
+      gameId: GameId;
+      from: TerritoryId;
+      to: TerritoryId;
+      amount: number;
     };
 
 

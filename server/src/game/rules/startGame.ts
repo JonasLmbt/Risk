@@ -20,6 +20,8 @@ export function startGame(state: GameState): GameState {
   next.currentPlayerId = next.players[0].id;
   next.phase = "reinforcement";
   next.reinforcementPool = 3;
+  next.fortifyUsed = false;
+  next.pendingConquest = null;
   next.log.push("Game started");
   return next;
 }

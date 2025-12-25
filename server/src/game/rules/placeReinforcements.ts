@@ -20,5 +20,11 @@ export function placeReinforcements(
   next.territories[territoryId].troops += amount;
   next.reinforcementPool -= amount;
   next.log.push(`${playerId} placed ${amount} troop(s) on ${territoryId}`);
+
+  if (next.reinforcementPool === 0) {
+    next.phase = "attack";
+    next.log.push("Reinforcement pool empty -> Phase changed: attack");
+  }
+
   return next;
 }

@@ -17,6 +17,7 @@ export function createGame(id: string): GameState {
     territories,
     reinforcementPool: 0,
     log: [],
-    pendingConquest: null
+    pendingConquest: null,
+    fortifyUsed: false,
   };
 }

@@ -2,6 +2,9 @@ import { useMemo, useState } from "react";
 import { useGame } from "./state/useGame";
 import type { TerritoryId } from "@risk/shared";
 import { Board } from "./components/Board";
+import { demoMap } from "@risk/shared";
+import { useEffect } from "react";
+
 
 
 
@@ -14,16 +17,25 @@ export default function App() {
   const [attackFrom, setAttackFrom] = useState<TerritoryId | null>(null);
   const [attackTo, setAttackTo] = useState<TerritoryId | null>(null);
   const [attackerDice, setAttackerDice] = useState<1 | 2 | 3>(3);
-
-
-  const myTerritories = useMemo(() => {
-    if (!game || !playerId) return [];
+  const [conquestMoveAmount, setConquestMoveAmount] = useState<number>(1);
+  const myTerritories = useMemo(() => {if (!game || !playerId) return [];
     return Object.entries(game.territories)
       .filter(([, t]) => t.ownerId === playerId)
       .map(([id]) => id);
   }, [game, playerId]);
-
   const canStart = game?.status === "lobby" && game.hostId === playerId;
+  const isMyTurn = !!game && game.status === "running" && game.currentPlayerId === playerId;
+
+  useEffect(() => {
+    if (!game) return;
+
+    const myTurnNow = game.status === "running" && game.currentPlayerId === playerId;
+
+    if (!myTurnNow || game.phase !== "attack") {
+      setAttackFrom(null);
+      setAttackTo(null);
+    }
+  }, [game?.phase, game?.currentPlayerId, game?.status, playerId]);
 
   return (
     <div style={{ padding: 16, fontFamily: "system-ui, sans-serif", maxWidth: 900 }}>
@@ -52,7 +64,14 @@ export default function App() {
           Start (host)
         </button>
 
-        <button onClick={() => send({ type: "turn/endPhase", gameId })} disabled={!game || game.status !== "running"}>
+        <button onClick={() => send({ type: "turn/endPhase", gameId })}
+          disabled={
+            !game ||
+            game.status !== "running" ||
+            game.currentPlayerId !== playerId ||
+            !!game.pendingConquest
+          }
+        >
           End Phase
         </button>
       </div>
@@ -84,9 +103,9 @@ export default function App() {
             attackTo={attackTo}
             onSelect={(id) => {
               setSelectedTerritory(id);
-
               if (!game || !playerId) return;
 
+              // Reinforcement: click your territory to place +1
               if (game.status === "running" && game.phase === "reinforcement") {
                 const owner = game.territories[id]?.ownerId;
                 const isMyTurn = game.currentPlayerId === playerId;
@@ -94,23 +113,34 @@ export default function App() {
                 if (isMyTurn && owner === playerId && game.reinforcementPool > 0) {
                   send({ type: "reinforcement/place", gameId, territoryId: id, amount: 1 });
                 }
+                return;
               }
 
-              // Build attack selection in attack phase
+              // Attack: selection logic (blocked if conquest move pending)
               if (game.status === "running" && game.phase === "attack") {
+                if (game.pendingConquest) return;
+
                 const owner = game.territories[id]?.ownerId;
 
+                // If no from selected -> pick one of yours with >=2 troops
                 if (!attackFrom) {
-                  if (owner === playerId) setAttackFrom(id);
+                  if (owner === playerId && (game.territories[id]?.troops ?? 0) >= 2) setAttackFrom(id);
                   return;
                 }
 
+                // If from selected but no to selected -> only allow valid enemy neighbor
                 if (!attackTo) {
-                  if (id !== attackFrom) setAttackTo(id);
+                  const neighbors = demoMap.territories.find((t) => t.id === attackFrom)?.neighbors ?? [];
+                  const isValidTo =
+                    neighbors.includes(id) &&
+                    owner !== null &&
+                    owner !== playerId;
+
+                  if (isValidTo) setAttackTo(id);
                   return;
                 }
 
-                // Third click resets selection quickly
+                // Third click: quick reset behavior
                 setAttackFrom(owner === playerId ? id : null);
                 setAttackTo(null);
               }
@@ -119,57 +149,19 @@ export default function App() {
         </>
       )}
 
-      {game?.status === "running" && (
+      {game?.status === "running" && isMyTurn && game.phase === "reinforcement" && (
         <>
           <h2 style={{ marginTop: 16 }}>Reinforcement</h2>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <label>
-              Amount{" "}
-              <input
-                type="number"
-                value={placeAmount}
-                min={1}
-                onChange={(e) => setPlaceAmount(Number(e.target.value))}
-                style={{ width: 80 }}
-              />
-            </label>
-
-            <div style={{ marginTop: 6 }}>
-              <strong>Troops available:</strong> {game.reinforcementPool}
-            </div>
-            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
-              Click one of your territories on the board to place +1 troop.
-            </div>
-
-            <div>
-              <strong>Your territories:</strong>{" "}
-              {myTerritories.length ? myTerritories.join(", ") : "(none)"}
-            </div>
+          <div>
+            <strong>Troops available:</strong> {game.reinforcementPool}
           </div>
-
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {myTerritories.map((tid) => (
-              <button
-                key={tid}
-                onClick={() =>
-                  send({
-                    type: "reinforcement/place",
-                    gameId,
-                    territoryId: tid as TerritoryId,
-                    amount: placeAmount
-                  })
-                }
-                disabled={game.phase !== "reinforcement" || game.currentPlayerId !== playerId}
-              >
-                Place on {tid}
-              </button>
-            ))}
-            
+          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
+            Click one of your territories on the board to place +1 troop.
           </div>
         </>
       )}
-      
-      {game?.status === "running" && (
+
+      {game?.status === "running" && isMyTurn && game.phase === "attack" && (
         <>
           <h2 style={{ marginTop: 16 }}>Attack</h2>
 
@@ -184,6 +176,7 @@ export default function App() {
               <select
                 value={attackerDice}
                 onChange={(e) => setAttackerDice(Number(e.target.value) as 1 | 2 | 3)}
+                disabled={!!game.pendingConquest}
               >
                 <option value={1}>1</option>
                 <option value={2}>2</option>
@@ -196,12 +189,7 @@ export default function App() {
                 if (!attackFrom || !attackTo) return;
                 send({ type: "attack/roll", gameId, from: attackFrom, to: attackTo, attackerDice });
               }}
-              disabled={
-                game.phase !== "attack" ||
-                game.currentPlayerId !== playerId ||
-                !attackFrom ||
-                !attackTo
-              }
+              disabled={!!game.pendingConquest || !attackFrom || !attackTo}
             >
               Roll Attack
             </button>
@@ -211,6 +199,7 @@ export default function App() {
                 setAttackFrom(null);
                 setAttackTo(null);
               }}
+              disabled={!!game.pendingConquest}
             >
               Clear
             </button>
@@ -219,6 +208,8 @@ export default function App() {
           <div style={{ marginTop: 8, fontSize: 13, opacity: 0.8 }}>
             Tip: Click one of your territories (From), then click a neighbor enemy territory (To).
           </div>
+
+          {game.pendingConquest && null}
         </>
       )}
 
@@ -228,21 +219,19 @@ export default function App() {
           <div>
             From <strong>{game.pendingConquest.from}</strong> to <strong>{game.pendingConquest.to}</strong>
           </div>
-          <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <button
-              onClick={() =>
-                send({
-                  type: "attack/move",
-                  gameId,
-                  from: game.pendingConquest!.from,
-                  to: game.pendingConquest!.to,
-                  amount: game.pendingConquest!.minMove
-                })
-              }
-              disabled={game.currentPlayerId !== playerId || game.phase !== "attack"}
-            >
-              Move min ({game.pendingConquest.minMove})
-            </button>
+
+          <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              type="range"
+              min={game.pendingConquest.minMove}
+              max={game.pendingConquest.maxMove}
+              value={conquestMoveAmount}
+              onChange={(e) => setConquestMoveAmount(Number(e.target.value))}
+            />
+            <div>
+              <strong>{conquestMoveAmount}</strong>{" "}
+              (min {game.pendingConquest.minMove}, max {game.pendingConquest.maxMove})
+            </div>
 
             <button
               onClick={() =>
@@ -251,17 +240,29 @@ export default function App() {
                   gameId,
                   from: game.pendingConquest!.from,
                   to: game.pendingConquest!.to,
-                  amount: game.pendingConquest!.maxMove
+                  amount: conquestMoveAmount
                 })
               }
               disabled={game.currentPlayerId !== playerId || game.phase !== "attack"}
             >
-              Move max ({game.pendingConquest.maxMove})
+              Confirm move
             </button>
           </div>
-          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>
-            (MVP: quick buttons. Slider kommt als nächstes, wenn Du willst.)
+        </div>
+      )}
+
+      {game?.status === "running" && isMyTurn && game.phase === "fortify" && (
+        <>
+          <h2 style={{ marginTop: 16 }}>Fortify</h2>
+          <div style={{ fontSize: 13, opacity: 0.8 }}>
+            (Next: move troops once between connected territories.)
           </div>
+        </>
+      )}
+
+      {game?.status === "running" && !isMyTurn && (
+        <div style={{ marginTop: 16, padding: 10, border: "1px solid #ccc", borderRadius: 10 }}>
+          Waiting for the other player…
         </div>
       )}
 
