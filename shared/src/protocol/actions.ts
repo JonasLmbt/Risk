@@ -44,6 +44,11 @@ export type ClientAction =
       from: TerritoryId;
       to: TerritoryId;
       amount: number;
+    }
+  | { 
+      type: "cards/trade"; 
+      gameId: string; 
+      cardIds: string[] 
     };
 
 

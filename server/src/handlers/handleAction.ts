@@ -6,6 +6,7 @@ import { placeReinforcements } from "../game/rules/placeReinforcements";
 import { attackRoll } from "../game/rules/attack";
 import { resolveConquestMove } from "../game/rules/resolveConquestMove";
 import { fortifyMove } from "../game/rules/fortify";
+import { tradeCards } from "../game/rules/tradeCards";
 
 
 export function handleAction(envelope: ClientActionEnvelope): {
@@ -104,6 +105,15 @@ export function handleAction(envelope: ClientActionEnvelope): {
     if (!game) return { gameId: action.gameId, error: "Game not found." };
 
     const next = fortifyMove(game, playerId, action.from, action.to, action.amount);
+    setGame(action.gameId, next);
+    return { gameId: action.gameId, newState: next };
+  }
+
+  if (action.type === "cards/trade") {
+    const game = getGame(action.gameId);
+    if (!game) return { gameId: action.gameId, error: "Game not found." };
+
+    const next = tradeCards(game, playerId, action.cardIds);
     setGame(action.gameId, next);
     return { gameId: action.gameId, newState: next };
   }

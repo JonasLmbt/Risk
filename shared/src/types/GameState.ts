@@ -1,5 +1,6 @@
-import type { GameId, PlayerId, TerritoryId } from "./Ids";
-import type { Phase, TerritoryState } from "./Map";
+import type { GameId, PlayerId, TerritoryId, ContinentId} from "./Ids";
+import type { TerritoryState, ContinentState } from "./Map";
+import type { CardState } from "./Cards";
 
 export type Player = {
   id: PlayerId;
@@ -8,6 +9,8 @@ export type Player = {
 };
 
 export type GameStatus = "lobby" | "running" | "finished";
+
+export type Phase = "reinforcement" | "attack" | "fortify";
 
 export type GameState = {
   id: GameId;
@@ -21,11 +24,10 @@ export type GameState = {
 
   // Minimal board state to start: territories with owner + troops.
   territories: Record<TerritoryId, TerritoryState>;
+  continents: Record<ContinentId, ContinentState>;
 
   // Reinforcement points available for current player in reinforcement phase.
   reinforcementPool: number;
-
-  log: string[];
 
   pendingConquest: null | {
     from: TerritoryId;
@@ -35,4 +37,8 @@ export type GameState = {
   };
   
   fortifyUsed: boolean;
+
+  cards: CardState;
+
+  log: string[];
 };

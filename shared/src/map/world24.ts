@@ -5,11 +5,14 @@ import type { MapDefinition } from "../types/Map";
  * IDs are T01..T24.
  */
 export const world24: MapDefinition = {
+  id: "world24",
+  name: "World 24",
   territories: [
-    // Americas (6)
+    // North America (3)
     { id: "T01", name: "Northwest", neighbors: ["T02", "T03"] },
     { id: "T02", name: "Northeast", neighbors: ["T01", "T03", "T04"] },
     { id: "T03", name: "Midlands", neighbors: ["T01", "T02", "T04", "T05"] },
+    // South America (3)
     { id: "T04", name: "Southeast", neighbors: ["T02", "T03", "T05"] },
     { id: "T05", name: "South Coast", neighbors: ["T03", "T04", "T06", "T11"] }, // connects to West Africa
     { id: "T06", name: "Southern", neighbors: ["T05"] },
@@ -37,5 +40,13 @@ export const world24: MapDefinition = {
     // Oceania (2)
     { id: "T23", name: "Pacific Rim", neighbors: ["T21", "T24", "T02"] }, // long sea route to NE
     { id: "T24", name: "Australis", neighbors: ["T22", "T23"] }
+  ],
+  continents: [
+    { id: "C1", name: "North America", bonus: 3, territories: ["T01", "T02", "T03"] },
+    { id: "C2", name: "South America", bonus: 2, territories: ["T04", "T05", "T06"] },
+    { id: "C3", name: "Europe", bonus: 3, territories: ["T07", "T08", "T09", "T10"] },
+    { id: "C4", name: "Africa", bonus: 3, territories: ["T11", "T12", "T15", "T16"] },
+    { id: "C5", name: "Asia", bonus: 5, territories: ["T13", "T14", "T17", "T18", "T19", "T20", "T21", "T22"] },
+    { id: "C6", name: "Oceania", bonus: 2, territories: ["T23", "T24"] }
   ]
 };

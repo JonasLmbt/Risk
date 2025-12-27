@@ -1,5 +1,6 @@
 import type { GameState, TerritoryId } from "@risk/shared";
 import { currentMap } from "@risk/shared";
+import { assignContinents } from "./assignContinents";
 
 type RollResult = {
   attackerRolls: number[];
@@ -84,6 +85,7 @@ export function attackRoll(
 
   if (next.territories[to].troops <= 0) {
     conquered = true;
+    next.cards.conqueredThisTurn = true;
 
     // Territory is conquered but troops are not moved yet
     next.territories[to].ownerId = playerId;
@@ -109,5 +111,5 @@ export function attackRoll(
     `ATTACK ${from} -> ${to} | Att:${resolved.attackerRolls.join(",")} vs Def:${resolved.defenderRolls.join(",")} | losses Att:${resolved.attackerLosses} Def:${resolved.defenderLosses}${conquered ? " | CONQUERED" : ""}`
   );
 
-  return next;
+  return assignContinents(next);
 }
