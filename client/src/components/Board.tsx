@@ -273,7 +273,7 @@ export function Board({
                 }}
               />
 
-              {/* labels (use your existing labelX/Y if present; fallback to computed center)
+              {/* labels (use your existing labelX/Y if present; fallback to computed center */}
               {(() => {
                 const c = centers.get(id);
 
@@ -283,14 +283,11 @@ export function Board({
                 return (
                   <>
                     <text x={x} y={y} fontSize={14} fontWeight={700} fill="#111" textAnchor="middle" dominantBaseline="middle">
-                      {id}
-                    </text>
-                    <text x={x} y={y + 18} fontSize={12} fill="#111" opacity={0.9} textAnchor="middle" dominantBaseline="middle">
-                      troops: {troops}
+                      {troops}
                     </text>
                   </>
                 );
-              })()} */}
+              })()}
             </g>
           );
         })}
