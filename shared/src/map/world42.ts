@@ -65,11 +65,11 @@ export const world42: MapDefinition = {
     { id: "T53", name: "Western Australia", neighbors: ["T50", "T51"] }
   ],
   continents: [
-  { id: "C1", name: "North America", bonus: 5, territories: ["T00","T01","T02","T03","T04","T05","T06","T07","T08"] },
-  { id: "C2", name: "South America", bonus: 2, territories: ["T10","T11","T12","T13"] },
-  { id: "C3", name: "Europe",        bonus: 5, territories: ["T20","T21","T22","T23","T24","T25","T26"] },
-  { id: "C4", name: "Africa",        bonus: 3, territories: ["T30","T31","T32","T33","T34","T35"] },
-  { id: "C5", name: "Asia",          bonus: 7, territories: ["T400","T401","T402","T403","T404","T405","T406","T407","T408","T409","T410","T411"] },
-  { id: "C6", name: "Australia",     bonus: 2, territories: ["T50","T51","T52","T53"] }
+  { id: "NA", name: "North America", bonus: 5, territories: ["T00","T01","T02","T03","T04","T05","T06","T07","T08"] },
+  { id: "SA", name: "South America", bonus: 2, territories: ["T10","T11","T12","T13"] },
+  { id: "EU", name: "Europe",        bonus: 5, territories: ["T20","T21","T22","T23","T24","T25","T26"] },
+  { id: "AF", name: "Africa",        bonus: 3, territories: ["T30","T31","T32","T33","T34","T35"] },
+  { id: "AS", name: "Asia",          bonus: 7, territories: ["T400","T401","T402","T403","T404","T405","T406","T407","T408","T409","T410","T411"] },
+  { id: "AU", name: "Australia",     bonus: 2, territories: ["T50","T51","T52","T53"] }
   ]
 };

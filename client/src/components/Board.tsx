@@ -23,8 +23,8 @@ type Props = {
   onAttack?: (from: TerritoryId, to: TerritoryId) => void;
 };
 
-function colorForPlayer(game: GameState, ownerId: string | null): string {
-  if (!ownerId) return "#eaeaea";
+function colorForPlayer(game: GameState, ownerId: string | null, fallback?: string): string {
+  if (!ownerId) return fallback ?? "#eaeaea";
   const idx = game.players.findIndex((p) => p.id === ownerId);
   const hue = idx >= 0 ? (idx * 137) % 360 : 0;
   return `hsl(${hue} 70% 78%)`;
@@ -272,7 +272,7 @@ export function Board({
                 d={l.d}
                 fill={fill}
                 opacity={opacity}
-                stroke={ui.selected || (hoverable && isHovered) ? "#000" : "#2b2b2b"}
+                stroke={ui.selected || (hoverable && isHovered) ? "#0000007c" : "#2b2b2b80"}
                 strokeWidth={strokeWidth}
                 style={{
                   cursor: ui.clickable ? "pointer" : "default",
@@ -332,6 +332,30 @@ export function Board({
           );
         })}
 
+        {/* continents */}
+        {currentMapLayout.continents &&
+          currentMapLayout.continents.map((c) => {
+            const id = c.id;
+            const st = game.continents[id];
+            const owner = st?.ownerId ?? null;
+
+            const borderColour = owner ? colorForPlayer(game, owner).replace(/(\d+%)$/, "48%") : "#888";
+
+            return (
+              <g key={id}>
+                <path
+                  ref={(el) => {
+                    if (el) pathRefs.current.set(id, el);
+                  }}
+                  d={c.d}
+                  stroke={borderColour}
+                  strokeWidth={1.5}
+                  fill="none"
+                />
+              </g>
+            );
+          })}
+        
       </svg>
 
       <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>

@@ -1,5 +1,6 @@
-import type { GameState } from "@risk/shared";
+import type { GameState, PlayerId } from "@risk/shared";
 import { calculateReinforcement } from "./calculateReinforcements";
+import { hasAnyAttackMove, hasAnyFortifyMove } from "./moves";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -10,25 +11,83 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function drawCardFor(state: GameState, playerId: string): GameState {
-  let next: GameState = structuredClone(state);
+function drawCardFor(state: GameState, playerId: PlayerId): GameState {
+  const next: GameState = structuredClone(state);
 
-  // if deck empty, reshuffle discard
+  // Refill deck if empty
   if (next.cards.deck.length === 0) {
     if (next.cards.discard.length === 0) return next;
     next.cards.deck = shuffle(next.cards.discard);
     next.cards.discard = [];
+    next.log.push("Cards: reshuffled discard into deck");
   }
 
   const card = next.cards.deck.pop();
   if (!card) return next;
 
-  const hand = next.cards.hands[playerId] ?? [];
-  next.cards.hands[playerId] = [...hand, card];
-
+  next.cards.hands[playerId] = [...(next.cards.hands[playerId] ?? []), card];
   next.log.push(
-    `CARD: ${playerId} drew ${card.symbol}${card.territoryId ? `(${card.territoryId})` : ""}`
+    `Card: ${playerId} drew ${card.symbol}${card.territoryId ? `(${card.territoryId})` : ""}`
   );
+
+  return next;
+}
+
+function tryEnterAttack(state: GameState): GameState {
+  const next: GameState = structuredClone(state);
+  const pid = next.currentPlayerId!;
+
+  next.phase = "attack";
+  next.reinforcementPool = 0;
+  next.log.push("Phase changed: attack");
+
+  if (!hasAnyAttackMove(next, pid)) {
+    next.log.push("Attack auto-skipped (no valid moves)");
+    return tryEnterFortify(next);
+  }
+
+  return next;
+}
+
+function tryEnterFortify(state: GameState): GameState {
+  const next: GameState = structuredClone(state);
+  const pid = next.currentPlayerId!;
+
+  next.phase = "fortify";
+  next.log.push("Phase changed: fortify");
+
+  if (!hasAnyFortifyMove(next, pid)) {
+    next.log.push("Fortify auto-skipped (no valid moves)");
+    return endTurn(next);
+  }
+
+  return next;
+}
+
+function endTurn(state: GameState): GameState {
+  let next: GameState = structuredClone(state);
+  const endingPlayerId = next.currentPlayerId!;
+
+  // Draw card if player conquered at least one territory this turn
+  if (next.cards.conqueredThisTurn) {
+    next = drawCardFor(next, endingPlayerId);
+  }
+  next.cards.conqueredThisTurn = false;
+
+  // Rotate player
+  const idx = next.players.findIndex((p) => p.id === endingPlayerId);
+  const nextIdx = (idx + 1) % next.players.length;
+  next.currentPlayerId = next.players[nextIdx]?.id ?? endingPlayerId;
+
+  // Start next turn
+  next.phase = "reinforcement";
+  next = calculateReinforcement(next, next.currentPlayerId);
+
+  next.fortifyUsed = false;
+  next.pendingConquest = null;
+
+  next.log.push(`Turn passed to ${next.currentPlayerId}`);
+  next.log.push("Phase changed: reinforcement");
 
   return next;
 }
@@ -37,52 +96,24 @@ export function advancePhase(state: GameState): GameState {
   if (state.status !== "running") return state;
   if (!state.currentPlayerId) return state;
 
-  let next: GameState = structuredClone(state);
+  // Do not allow phase changes while a conquest move is pending
+  if (state.pendingConquest) return state;
 
-  if (next.phase === "reinforcement") {
-    next.phase = "attack";
-    next.reinforcementPool = 0;
-    next.cards.conqueredThisTurn = false;
-    next.log.push("Phase changed: attack");
-    return next;
+  if (state.phase === "reinforcement") {
+    // IMPORTANT: do NOT reset conqueredThisTurn here.
+    // It should reflect whether the player conquered during the turn
+    // and be reset when the turn ends (in endTurn()).
+    return tryEnterAttack(state);
   }
 
-  if (next.phase === "attack") {
-    next.phase = "fortify";
-    next.log.push("Phase changed: fortify");
-    return next;
+  if (state.phase === "attack") {
+    return tryEnterFortify(state);
   }
 
-  if (next.phase === "fortify") {
-    const endingPlayerId = next.currentPlayerId;
-
-    // Draw a card if player conquered at least one territory this turn
-    if (next.cards.conqueredThisTurn && endingPlayerId) {
-      const withCard = drawCardFor(next, endingPlayerId);
-      // copy back (since drawCardFor returns a new state)
-      next.cards = withCard.cards;
-      next.log = withCard.log;
-      next.log.push('Recieved card')
-    }
-
-    // reset flag for next turn
-    next.cards.conqueredThisTurn = false;
-
-    // rotate player
-    const idx = next.players.findIndex((p) => p.id === endingPlayerId);
-    const nextIdx = (idx + 1) % next.players.length;
-    next.currentPlayerId = next.players[nextIdx]?.id ?? endingPlayerId;
-
-    next.phase = "reinforcement";
-    next = calculateReinforcement(next, next.currentPlayerId);
-    next.log.push(`Turn passed to ${next.currentPlayerId}`);
-    next.log.push("Phase changed: reinforcement");
-
-    next.fortifyUsed = false;
-    next.pendingConquest = null;
-    return next;
+  if (state.phase === "fortify") {
+    return endTurn(state);
   }
 
-  // safety fallback
-  return next;
+  // Safety fallback
+  return state;
 }

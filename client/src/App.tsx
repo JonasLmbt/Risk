@@ -371,7 +371,9 @@ export default function App() {
             </div>
 
             <button
-              onClick={() =>
+              onClick={() => {
+                setAttackFrom(null);
+                setAttackTo(null);
                 send({
                   type: "attack/move",
                   gameId,
@@ -379,6 +381,7 @@ export default function App() {
                   to: game.pendingConquest!.to,
                   amount: conquestMoveAmount
                 })
+              }
               }
               disabled={!isMyTurn || game.phase !== "attack"}
             >

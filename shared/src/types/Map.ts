@@ -32,6 +32,7 @@ export type MapDefinition = {
 
 export type MapLayout = {
   territories: TerritoryPathLayout[];
+  continents?: ContinentLayout[];
   lines?: LineLayout[];
 };
 
@@ -42,6 +43,11 @@ export type LineLayout = {
   strokeWidth?: number;
   strokeDasharray?: string;
   opacity?: number;
+};
+
+export type ContinentLayout = {
+  id: ContinentId;
+  d: string; // SVG path (closed)
 };
 
 export type TerritoryPathLayout = {
