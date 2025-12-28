@@ -20,6 +20,7 @@ type Props = {
 
   // selection callback
   onTerritoryClick: (id: TerritoryId) => void;
+  onAttack?: (from: TerritoryId, to: TerritoryId) => void;
 };
 
 function colorForPlayer(game: GameState, ownerId: string | null): string {
@@ -131,8 +132,11 @@ export function Board({
   attackTo,
   fortifyFrom,
   fortifyTo,
-  onTerritoryClick
+  onTerritoryClick,
+  onAttack
 }: Props) {
+  const [hovered, setHovered] = useState<TerritoryId | null>(null);
+
   const isMyTurn = game.status === "running" && game.currentPlayerId === playerId;
 
   // UI state per territory
@@ -251,6 +255,14 @@ export function Board({
           const ui = territoryUi.get(id)!;
           const fill = colorForPlayer(game, owner);
 
+          const isHovered = hovered === id;
+
+          // Hover effect only when it makes sense
+          const hoverable = ui.clickable; // or true if you want hover on all
+
+          const opacity = hoverable && isHovered ? Math.min(1, ui.opacity + 0.25) : ui.opacity;
+          const strokeWidth = (ui.selected ? 2.5 : 1.5) + (hoverable && isHovered ? 1.0 : 0);
+
           return (
             <g key={id}>
               <path
@@ -259,34 +271,67 @@ export function Board({
                 }}
                 d={l.d}
                 fill={fill}
-                opacity={ui.opacity}
-                stroke={ui.selected ? "#000" : "#2b2b2b"}
-                strokeWidth={ui.selected ? 2.5 : 1.5}
-                style={{ cursor: ui.clickable ? "pointer" : "default" }}
+                opacity={opacity}
+                stroke={ui.selected || (hoverable && isHovered) ? "#000" : "#2b2b2b"}
+                strokeWidth={strokeWidth}
+                style={{
+                  cursor: ui.clickable ? "pointer" : "default",
+                  transition: "opacity 120ms ease, stroke-width 120ms ease, filter 120ms ease",
+                  // makes it “pop” without true scaling
+                  filter: hoverable && isHovered ? "drop-shadow(0px 2px 3px rgba(0,0,0,0.25))" : "none",
+                }}
+                onMouseEnter={() => {
+                  if (!hoverable) return;
+                  setHovered(id);
+                }}
+                onMouseLeave={() => {
+                  if (!hoverable) return;
+                  setHovered(null);
+                }}
                 onClick={() => {
                   if (!ui.clickable) return;
-                  onTerritoryClick(id);
+                  // Attack 
+                  if (
+                    mode === "attack" &&
+                    attackFrom &&
+                    canAttackTo(game, playerId!, attackFrom, id) &&
+                    typeof onAttack === "function"
+                  ) {
+                    onAttack(attackFrom, id);
+                  } else {
+                    onTerritoryClick(id);
+                  }
                 }}
               />
 
-              {/* labels (use your existing labelX/Y if present; fallback to computed center */}
               {(() => {
                 const c = centers.get(id);
-
                 const x = l.labelX ?? c?.x ?? 0;
                 const y = l.labelY ?? c?.y ?? 0;
-              
+
                 return (
-                  <>
-                    <text x={x} y={y} fontSize={12} fontWeight={600} fill="#111" textAnchor="middle" dominantBaseline="middle">
-                      {troops}
-                    </text>
-                  </>
+                  <text
+                    x={x}
+                    y={y}
+                    fontSize={12}
+                    fontWeight={600}
+                    fill="#111"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    style={{
+                      pointerEvents: "none",
+                      transition: "transform 120ms ease, opacity 120ms ease",
+                      opacity: hoverable && isHovered ? 1 : 0.9,
+                    }}
+                  >
+                    {troops}
+                  </text>
                 );
               })()}
             </g>
           );
         })}
+
       </svg>
 
       <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>

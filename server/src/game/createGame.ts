@@ -48,6 +48,7 @@ export function createGame(id: string): GameState {
     territories,
     continents,
     reinforcementPool: 0,
+    reinforcementExplanation: "",
     pendingConquest: null,
     fortifyUsed: false,
     log: [],

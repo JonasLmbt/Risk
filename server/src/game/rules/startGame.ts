@@ -6,7 +6,7 @@ export function startGame(state: GameState): GameState {
   if (state.status !== "lobby") return state;
   if (state.players.length < 2) return state;
 
-  const next: GameState = structuredClone(state);
+  let next: GameState = structuredClone(state);
   next.status = "running";
 
     function shuffle<T>(arr: T[]): T[] {
@@ -58,7 +58,7 @@ export function startGame(state: GameState): GameState {
 
   next.currentPlayerId = next.players[0].id;
   next.phase = "reinforcement";
-  next.reinforcementPool = calculateReinforcement(next, next.currentPlayerId);
+  next = calculateReinforcement(next, next.currentPlayerId);
   next.fortifyUsed = false;
   next.pendingConquest = null;
   next.log.push("Game started");

@@ -28,6 +28,7 @@ export type GameState = {
 
   // Reinforcement points available for current player in reinforcement phase.
   reinforcementPool: number;
+  reinforcementExplanation: string;
 
   pendingConquest: null | {
     from: TerritoryId;

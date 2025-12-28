@@ -68,6 +68,19 @@ export default function App() {
     }
   }, [game?.phase, game?.currentPlayerId, game?.status, playerId]);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (game?.status === "running" && game.phase === "attack" && !game.pendingConquest) {
+          setAttackFrom(null);
+          setAttackTo(null);
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [game?.status, game?.phase, game?.pendingConquest]);
+
   const boardMode =
     game?.status === "running" && isMyTurn
       ? game.phase === "reinforcement"
@@ -158,7 +171,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ padding: 16, fontFamily: "system-ui, sans-serif", maxWidth: 1500 }}>
+    <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
       <h1>Risk Online</h1>
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -241,6 +254,22 @@ export default function App() {
               fortifyFrom={fortifyFrom}
               fortifyTo={fortifyTo}
               onTerritoryClick={handleBoardSelect}
+              onAttack={(from, to) => {
+                if (!from || !to) return;
+
+                const troops = game.territories[from]?.troops ?? 0;
+                const dice = Math.min(3, troops - 1);
+
+                if (dice < 1) return;
+
+                send({
+                  type: "attack/roll",
+                  gameId,
+                  from,
+                  to,
+                  attackerDice: dice as 1 | 2 | 3,
+                });
+              }}
             />
           </div>
         </>
@@ -264,7 +293,7 @@ export default function App() {
         <>
           <h2 style={{ marginTop: 16 }}>Reinforcement</h2>
           <div>
-            <strong>Troops available:</strong> {game.reinforcementPool}
+            <strong>Troops available:</strong> {game.reinforcementPool} ({game.reinforcementExplanation})
           </div>
           <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
             Click a highlighted territory on the board to place +1 troop.

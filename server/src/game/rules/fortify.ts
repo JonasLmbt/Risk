@@ -67,7 +67,6 @@ export function fortifyMove(
   const idx = next.players.findIndex((p) => p.id === next.currentPlayerId);
   const nextIdx = (idx + 1) % next.players.length;
   next.currentPlayerId = next.players[nextIdx]?.id ?? next.currentPlayerId;
-  next.reinforcementPool = 3;
   next.fortifyUsed = false;
   next.pendingConquest = null;
 

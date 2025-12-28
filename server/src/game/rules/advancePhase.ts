@@ -11,7 +11,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function drawCardFor(state: GameState, playerId: string): GameState {
-  const next: GameState = structuredClone(state);
+  let next: GameState = structuredClone(state);
 
   // if deck empty, reshuffle discard
   if (next.cards.deck.length === 0) {
@@ -37,7 +37,7 @@ export function advancePhase(state: GameState): GameState {
   if (state.status !== "running") return state;
   if (!state.currentPlayerId) return state;
 
-  const next: GameState = structuredClone(state);
+  let next: GameState = structuredClone(state);
 
   if (next.phase === "reinforcement") {
     next.phase = "attack";
@@ -74,7 +74,7 @@ export function advancePhase(state: GameState): GameState {
     next.currentPlayerId = next.players[nextIdx]?.id ?? endingPlayerId;
 
     next.phase = "reinforcement";
-    next.reinforcementPool = calculateReinforcement(next, next.currentPlayerId);
+    next = calculateReinforcement(next, next.currentPlayerId);
     next.log.push(`Turn passed to ${next.currentPlayerId}`);
     next.log.push("Phase changed: reinforcement");
 
