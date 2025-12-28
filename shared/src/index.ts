@@ -5,9 +5,5 @@ export * from "./types/Map";
 export * from "./protocol/actions";
 export * from "./protocol/events";
 export * from "./utils/assert";
-export * from "./map/demoMap";
-export * from "./map/demoLayout";
-export * from "./map/world24";
-export * from "./map/world24Layout";
 export * from "./map/currentMap";
 
