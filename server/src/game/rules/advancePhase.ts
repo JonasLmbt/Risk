@@ -38,7 +38,6 @@ function tryEnterAttack(state: GameState): GameState {
   const pid = next.currentPlayerId!;
 
   next.phase = "attack";
-  next.reinforcementPool = 0;
   next.log.push("Phase changed: attack");
 
   if (!hasAnyAttackMove(next, pid)) {

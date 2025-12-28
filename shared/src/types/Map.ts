@@ -34,6 +34,8 @@ export type MapLayout = {
   territories: TerritoryPathLayout[];
   continents?: ContinentLayout[];
   lines?: LineLayout[];
+  backgroundImage?: string;
+  backgroundColor?: string;
 };
 
 export type LineLayout = {

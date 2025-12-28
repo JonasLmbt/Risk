@@ -19,10 +19,10 @@ export function continentBonus(state: GameState, playerId: string): number {
 export function calculateReinforcement(state: GameState, playerId: string): GameState {
   const next: GameState = structuredClone(state);
   const owned = countOwnedTerritories(next, playerId);
-  const base = Math.floor(owned / 3);
+  const base = Math.max(Math.floor(owned / 3), 3);
   const cont = continentBonus(next, playerId);
 
-  next.reinforcementPool = Math.max(3, base + cont);
+  next.reinforcementPool = base + cont;
   next.reinforcementExplanation = `Base: ${base}, Continent bonus: ${cont}`;
 
   return next;

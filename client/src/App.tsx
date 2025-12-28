@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useGame } from "./state/useGame";
 import type { TerritoryId } from "@risk/shared";
+import { useGame } from "./state/useGame";
 import { Board } from "./components/Board";
+
+type BoardMode = "none" | "reinforcement" | "attack" | "fortify";
 
 export default function App() {
   const { playerId, game, lastError, send } = useGame();
@@ -16,8 +18,9 @@ export default function App() {
   const [attackFrom, setAttackFrom] = useState<TerritoryId | null>(null);
   const [attackTo, setAttackTo] = useState<TerritoryId | null>(null);
   const [attackerDice, setAttackerDice] = useState<1 | 2 | 3>(3);
+  const [autoRoll, setAutoRoll] = useState(false);
 
-  // Conquest move
+  // Conquest
   const [conquestMoveAmount, setConquestMoveAmount] = useState<number>(1);
 
   // Fortify
@@ -28,7 +31,6 @@ export default function App() {
   const canStart = game?.status === "lobby" && game.hostId === playerId;
   const isMyTurn = !!game && game.status === "running" && game.currentPlayerId === playerId;
 
-  // Useful lists (optional UI/debug)
   const myTerritories = useMemo(() => {
     if (!game || !playerId) return [];
     return Object.entries(game.territories)
@@ -36,51 +38,38 @@ export default function App() {
       .map(([id]) => id);
   }, [game, playerId]);
 
-  // Keep conquest slider synced to min move when it appears
+  // keep conquest slider in sync
   useEffect(() => {
     if (!game?.pendingConquest) return;
     setConquestMoveAmount(game.pendingConquest.minMove);
   }, [game?.pendingConquest]);
 
-  // Reset action selections when turn or phase changes (and when it's not your turn)
+  // reset selections on phase/turn changes
   useEffect(() => {
     if (!game) return;
 
     const myTurnNow = game.status === "running" && game.currentPlayerId === playerId;
-
     if (!myTurnNow) {
       setAttackFrom(null);
       setAttackTo(null);
       setFortifyFrom(null);
       setFortifyTo(null);
+      setAutoRoll(false);
       return;
     }
 
     if (game.phase !== "attack") {
       setAttackFrom(null);
       setAttackTo(null);
+      setAutoRoll(false);
     }
-
     if (game.phase !== "fortify") {
       setFortifyFrom(null);
       setFortifyTo(null);
     }
   }, [game?.phase, game?.currentPlayerId, game?.status, playerId]);
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        if (game?.status === "running" && game.phase === "attack" && !game.pendingConquest) {
-          setAttackFrom(null);
-          setAttackTo(null);
-        }
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [game?.status, game?.phase, game?.pendingConquest]);
-
-  const boardMode =
+  const boardMode: BoardMode =
     game?.status === "running" && isMyTurn
       ? game.phase === "reinforcement"
         ? "reinforcement"
@@ -93,10 +82,8 @@ export default function App() {
 
   function handleBoardSelect(id: TerritoryId) {
     setSelectedTerritory(id);
-
     if (!game || !playerId || !isMyTurn) return;
 
-    // Reinforcement: Board should already limit clickability; still keep it safe here.
     if (game.phase === "reinforcement") {
       const owner = game.territories[id]?.ownerId;
       if (owner === playerId && game.reinforcementPool > 0) {
@@ -105,28 +92,23 @@ export default function App() {
       return;
     }
 
-    // Attack: selection (blocked if conquest move pending)
     if (game.phase === "attack") {
       if (game.pendingConquest) return;
 
       const owner = game.territories[id]?.ownerId;
 
-      // pick from
       if (!attackFrom) {
-        // Board clickable only makes valid ‘from’ territories here,
-        // but we leave the security check in:
         if (owner === playerId && (game.territories[id]?.troops ?? 0) >= 2) {
           setAttackFrom(id);
           setAttackTo(null);
+          setAutoRoll(false);
         }
         return;
       }
 
-      // pick to
       if (!attackTo) {
         if (id === attackFrom) return;
-        // IMPORTANT: trust Board – it only calls us for valid targets
-        setAttackTo(id);
+        setAttackTo(id); // trust Board clickability rules
         return;
       }
 
@@ -134,13 +116,13 @@ export default function App() {
       if (owner === playerId && (game.territories[id]?.troops ?? 0) >= 2) {
         setAttackFrom(id);
         setAttackTo(null);
+        setAutoRoll(false);
       } else {
         setAttackTo(null);
       }
       return;
     }
 
-    // Fortify: selection
     if (game.phase === "fortify") {
       if (game.pendingConquest) return;
 
@@ -165,214 +147,223 @@ export default function App() {
       setFortifyFrom(id);
       setFortifyTo(null);
       setFortifyAmount(1);
-      return;
     }
   }
 
-  return (
-    <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
-      <h1>Risk Online</h1>
+  // Auto-roll loop (client-driven). Stops safely on any invalidation.
+  useEffect(() => {
+    if (!autoRoll) return;
+    if (!game || !isMyTurn) return;
+    if (game.status !== "running" || game.phase !== "attack") return;
+    if (game.pendingConquest) return;
+    if (!attackFrom || !attackTo) return;
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <label>
-          Game ID{" "}
-          <input value={gameId} onChange={(e) => setGameId(e.target.value)} style={{ width: 120 }} />
-        </label>
+    const tick = () => {
+      if (!game) return;
 
-        <label>
-          Name{" "}
-          <input value={name} onChange={(e) => setName(e.target.value)} style={{ width: 160 }} />
-        </label>
+      const fromTroops = game.territories[attackFrom]?.troops ?? 0;
+      if (fromTroops < 2) return;
 
-        <button onClick={() => send({ type: "game/join", gameId, name })} disabled={!playerId}>
-          Join
-        </button>
+      const dice = Math.min(3, fromTroops - 1) as 1 | 2 | 3;
 
-        <button onClick={() => send({ type: "game/leave", gameId })} disabled={!game}>
-          Leave
-        </button>
+      send({
+        type: "attack/roll",
+        gameId,
+        from: attackFrom,
+        to: attackTo,
+        attackerDice: dice,
+      });
+    };
 
-        <button onClick={() => send({ type: "lobby/start", gameId })} disabled={!canStart}>
-          Start (host)
-        </button>
-      </div>
+    // small delay prevents “spam” + lets state update between rolls
+    const handle = window.setInterval(tick, 450);
+    return () => window.clearInterval(handle);
+  }, [autoRoll, game, isMyTurn, attackFrom, attackTo, gameId, send]);
 
-      {lastError && (
-        <div style={{ marginTop: 12, padding: 10, border: "1px solid #ccc" }}>
-          <strong>Error:</strong> {lastError}
-        </div>
-      )}
-      <hr style={{ margin: "16px 0" }} />
-      {game && (
-        <>
-          <h2 style={{ marginTop: 16 }}>Board</h2>
-
-          <div
-            style={{
-              height: "100%",         
-              width: "100%",
-              border: "1px solid #ddd",
-              borderRadius: 12,
-              overflow: "hidden",
-            }}
-          >
-            <Board
-              game={game}
-              playerId={playerId}
-              mode={boardMode}
-              attackFrom={attackFrom}
-              attackTo={attackTo}
-              fortifyFrom={fortifyFrom}
-              fortifyTo={fortifyTo}
-              onTerritoryClick={handleBoardSelect}
-              onAttack={(from, to) => {
-                if (!from || !to) return;
-
-                const troops = game.territories[from]?.troops ?? 0;
-                const dice = Math.min(3, troops - 1);
-
-                if (dice < 1) return;
-
-                send({
-                  type: "attack/roll",
-                  gameId,
-                  from,
-                  to,
-                  attackerDice: dice as 1 | 2 | 3,
-                });
-              }}
-            />
-          </div>
-        </>
-      )}
-
-      <div style={{ marginTop: 12 }}>
-        <button
-            onClick={() => send({ type: "turn/endPhase", gameId })}
-            disabled={
-              !game ||
-              game.status !== "running" ||
-              game.currentPlayerId !== playerId ||
-              !!game.pendingConquest
-            }
-          >
-            End Phase
-        </button>
-      </div>
-      {/* Only show the current action UI when it's your turn */}
-      {game?.status === "running" && isMyTurn && game.phase === "reinforcement" && (
-        <>
-          <h2 style={{ marginTop: 16 }}>Reinforcement</h2>
-          <div>
-            <strong>Troops available:</strong> {game.reinforcementPool} ({game.reinforcementExplanation})
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
-            Click a highlighted territory on the board to place +1 troop.
-          </div>
-        </>
-      )}
-
-      {game?.status === "running" && isMyTurn && game.phase === "attack" && (
-        <>
-          <h2 style={{ marginTop: 16 }}>Attack</h2>
-
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <div>
-              <strong>From:</strong> {attackFrom ?? "-"} <strong>To:</strong> {attackTo ?? "-"}
+  const hud = (
+    <div
+      style={{
+        position: "absolute",
+        top: 12,
+        left: 12,
+        right: 12,
+        display: "flex",
+        gap: 12,
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        pointerEvents: "none",
+      }}
+    >
+      {/* Left stack */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, pointerEvents: "auto" }}>
+        {/* Lobby controls (only when not running) */}
+        {(!game || game.status === "lobby") && (
+          <div style={panelStyle}>
+            <div style={panelTitleStyle}>Lobby</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <label style={labelStyle}>
+                Game ID
+                <input value={gameId} onChange={(e) => setGameId(e.target.value)} style={inputStyle} />
+              </label>
+              <label style={labelStyle}>
+                Name
+                <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
+              </label>
+              <button
+                style={buttonStyle}
+                onClick={() => send({ type: "game/join", gameId, name })}
+                disabled={!playerId}
+              >
+                Join
+              </button>
+              <button style={buttonStyle} onClick={() => send({ type: "game/leave", gameId })} disabled={!game}>
+                Leave
+              </button>
+              <button style={buttonStyle} onClick={() => send({ type: "lobby/start", gameId })} disabled={!canStart}>
+                Start
+              </button>
             </div>
 
-            <label>
-              Attacker dice{" "}
-              <select
-                value={attackerDice}
-                onChange={(e) => setAttackerDice(Number(e.target.value) as 1 | 2 | 3)}
+            {lastError && <div style={{ marginTop: 8, opacity: 0.9 }}>Error: {lastError}</div>}
+          </div>
+        )}
+
+        {/* Phase controls (only when running + your turn) */}
+        {game?.status === "running" && isMyTurn && (
+          <div style={panelStyle}>
+            <div style={panelTitleStyle}>Turn</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ opacity: 0.9 }}>
+                Phase: <strong>{game.phase}</strong>
+              </div>
+              <button
+                style={buttonStyle}
+                onClick={() => send({ type: "turn/endPhase", gameId })}
                 disabled={!!game.pendingConquest}
               >
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-              </select>
-            </label>
+                End Phase
+              </button>
+            </div>
 
-            <button
-              onClick={() => {
-                if (!attackFrom || !attackTo) return;
-                send({ type: "attack/roll", gameId, from: attackFrom, to: attackTo, attackerDice });
-              }}
-              disabled={!!game.pendingConquest || !attackFrom || !attackTo}
-            >
-              Roll Attack
-            </button>
-
-            <button
-              onClick={() => {
-                setAttackFrom(null);
-                setAttackTo(null);
-              }}
-              disabled={!!game.pendingConquest}
-            >
-              Clear
-            </button>
+            {game.phase === "reinforcement" && (
+              <div style={{ marginTop: 8, opacity: 0.9 }}>
+                Pool: <strong>{game.reinforcementPool}</strong>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>{game.reinforcementExplanation}</div>
+              </div>
+            )}
           </div>
+        )}
+      </div>
 
-          <div style={{ marginTop: 8, fontSize: 13, opacity: 0.8 }}>
-            Tip: pick a highlighted origin territory, then a highlighted enemy neighbor.
+      {/* Right stack */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, pointerEvents: "auto" }}>
+        {/* Attack panel */}
+        {game?.status === "running" && isMyTurn && game.phase === "attack" && !game.pendingConquest && (
+          <div style={panelStyle}>
+            <div style={panelTitleStyle}>Attack</div>
+            <div style={{ fontSize: 13, opacity: 0.9 }}>
+              From: <strong>{attackFrom ?? "-"}</strong> → To: <strong>{attackTo ?? "-"}</strong>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+              <label style={labelStyle}>
+                Dice
+                <select
+                  value={attackerDice}
+                  onChange={(e) => setAttackerDice(Number(e.target.value) as 1 | 2 | 3)}
+                  style={selectStyle}
+                  disabled={autoRoll}
+                >
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                </select>
+              </label>
+
+              <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={autoRoll} onChange={(e) => setAutoRoll(e.target.checked)} />
+                Auto-roll
+              </label>
+
+              <button
+                style={buttonStyle}
+                onClick={() => {
+                  if (!attackFrom || !attackTo) return;
+                  send({ type: "attack/roll", gameId, from: attackFrom, to: attackTo, attackerDice });
+                }}
+                disabled={!attackFrom || !attackTo || autoRoll}
+              >
+                Roll
+              </button>
+
+              <button
+                style={buttonStyle}
+                onClick={() => {
+                  setAttackFrom(null);
+                  setAttackTo(null);
+                  setAutoRoll(false);
+                }}
+              >
+                Clear
+              </button>
+            </div>
           </div>
-        </>
-      )}
+        )}
 
-      {/* Conquest move: visible only when it exists; server may auto-resolve if min==max */}
-      {game?.pendingConquest && (
-        <div style={{ marginTop: 10, padding: 10, border: "1px solid #ccc", borderRadius: 10 }}>
-          <div style={{ fontWeight: 700 }}>Conquest move required</div>
-          <div>
-            From <strong>{game.pendingConquest.from}</strong> to <strong>{game.pendingConquest.to}</strong>
-          </div>
+        {/* Conquest panel */}
+        {game?.pendingConquest && (
+          <div style={panelStyle}>
+            <div style={panelTitleStyle}>Conquest Move</div>
+            <div style={{ fontSize: 13, opacity: 0.9 }}>
+              {game.pendingConquest.from} → {game.pendingConquest.to}
+            </div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              type="range"
-              min={game.pendingConquest.minMove}
-              max={game.pendingConquest.maxMove}
-              value={conquestMoveAmount}
-              onChange={(e) => setConquestMoveAmount(Number(e.target.value))}
-            />
-            <div>
-              <strong>{conquestMoveAmount}</strong> (min {game.pendingConquest.minMove}, max {game.pendingConquest.maxMove})
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 8 }}>
+              <input
+                type="range"
+                min={game.pendingConquest.minMove}
+                max={game.pendingConquest.maxMove}
+                value={conquestMoveAmount}
+                onChange={(e) => setConquestMoveAmount(Number(e.target.value))}
+              />
+              <div style={{ minWidth: 56, textAlign: "right" }}>
+                <strong>{conquestMoveAmount}</strong>
+              </div>
             </div>
 
             <button
+              style={{ ...buttonStyle, marginTop: 8 }}
               onClick={() => {
                 setAttackFrom(null);
                 setAttackTo(null);
-                send({
-                  type: "attack/move",
-                  gameId,
-                  from: game.pendingConquest!.from,
-                  to: game.pendingConquest!.to,
-                  amount: conquestMoveAmount
-                })
-              }
-              }
-              disabled={!isMyTurn || game.phase !== "attack"}
+                setAutoRoll(false);
+                if (game?.pendingConquest) {
+                  send({
+                    type: "attack/move",
+                    gameId,
+                    from: game.pendingConquest.from,
+                    to: game.pendingConquest.to,
+                    amount: conquestMoveAmount,
+                  });
+                }
+              }}
+              disabled={!isMyTurn || game?.phase !== "attack"}
             >
-              Confirm move
+              Confirm
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {game?.status === "running" && isMyTurn && game.phase === "fortify" && (
-        <>
-          <h2 style={{ marginTop: 16 }}>Fortify</h2>
-
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <div>
-              <strong>From:</strong> {fortifyFrom ?? "-"} <strong>To:</strong> {fortifyTo ?? "-"}
+        {/* Fortify panel */}
+        {game?.status === "running" && isMyTurn && game.phase === "fortify" && (
+          <div style={panelStyle}>
+            <div style={panelTitleStyle}>Fortify</div>
+            <div style={{ fontSize: 13, opacity: 0.9 }}>
+              From: <strong>{fortifyFrom ?? "-"}</strong> → To: <strong>{fortifyTo ?? "-"}</strong>
             </div>
 
             {fortifyFrom && (
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 8 }}>
                 <input
                   type="range"
                   min={1}
@@ -380,82 +371,138 @@ export default function App() {
                   value={fortifyAmount}
                   onChange={(e) => setFortifyAmount(Number(e.target.value))}
                 />
-                <div>
+                <div style={{ minWidth: 56, textAlign: "right" }}>
                   <strong>{fortifyAmount}</strong>
                 </div>
               </div>
             )}
 
-            <button
-              onClick={() => {
-                if (!fortifyFrom || !fortifyTo) return;
-                send({ type: "fortify/move", gameId, from: fortifyFrom, to: fortifyTo, amount: fortifyAmount });
-              }}
-              disabled={!fortifyFrom || !fortifyTo}
-            >
-              Confirm fortify
-            </button>
-
-            <button
-              onClick={() => {
-                setFortifyFrom(null);
-                setFortifyTo(null);
-              }}
-            >
-              Clear
-            </button>
+            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+              <button
+                style={buttonStyle}
+                onClick={() => {
+                  if (!fortifyFrom || !fortifyTo) return;
+                  send({ type: "fortify/move", gameId, from: fortifyFrom, to: fortifyTo, amount: fortifyAmount });
+                }}
+                disabled={!fortifyFrom || !fortifyTo}
+              >
+                Confirm
+              </button>
+              <button
+                style={buttonStyle}
+                onClick={() => {
+                  setFortifyFrom(null);
+                  setFortifyTo(null);
+                }}
+              >
+                Clear
+              </button>
+            </div>
           </div>
+        )}
 
-          <div style={{ marginTop: 8, fontSize: 13, opacity: 0.8 }}>
-            Tip: pick a highlighted “From” territory (at least 2 troops), then a highlighted “To” territory (connected owned path).
-          </div>
-        </>
-      )}
-
-      {game?.status === "running" && !isMyTurn && (
-        <div style={{ marginTop: 16, padding: 10, border: "1px solid #ccc", borderRadius: 10 }}>
-          Waiting for the other player…
-        </div>
-      )}
-
-      <h2 style={{ marginTop: 16 }}>State</h2>
-      <pre style={{ background: "#f6f6f6", padding: 12, borderRadius: 8, overflow: "auto" }}>
-        {game ? JSON.stringify(game, null, 2) : "No state yet. Join a game."}
-      </pre>
-
-      <h2>Log</h2>
-      <ul>
-        {(game?.log ?? []).slice(-15).map((line, i) => (
-          <li key={i}>{line}</li>
-        ))}
-      </ul>
-
-      <h2>Debug Info</h2>
-      <div>
-        <div>
-          <strong>Your playerId:</strong> {playerId ?? "(connecting...)"}
-        </div>
-        <div>
-          <strong>Game status:</strong> {game?.status ?? "(no game)"}
-        </div>
-        <div>
-          <strong>Host:</strong> {game?.hostId ?? "-"}
-        </div>
-        <div>
-          <strong>Current player:</strong> {game?.currentPlayerId ?? "-"}
-        </div>
-        <div>
-          <strong>Phase:</strong> {game?.phase ?? "-"}
-        </div>
-        <div>
-          <strong>Reinforcement pool:</strong> {game?.reinforcementPool ?? 0}
-        </div>
-        {!!game && (
-          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
-            Your territories (debug): {myTerritories.length ? myTerritories.join(", ") : "(none)"}
+        {/* Waiting */}
+        {game?.status === "running" && !isMyTurn && (
+          <div style={panelStyle}>
+            <div style={panelTitleStyle}>Waiting</div>
+            <div style={{ opacity: 0.9 }}>Another player is taking their turn…</div>
           </div>
         )}
       </div>
     </div>
   );
+
+  return (
+    <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "calc(100vh - 32px)",
+          border: "1px solid #ddd",
+          borderRadius: 14,
+          overflow: "hidden",
+        }}
+      >
+        {game && (
+          <Board
+            game={game}
+            playerId={playerId}
+            mode={boardMode}
+            attackFrom={attackFrom}
+            attackTo={attackTo}
+            fortifyFrom={fortifyFrom}
+            fortifyTo={fortifyTo}
+            onTerritoryClick={handleBoardSelect}
+            onAttack={(from, to) => {
+              if (!game || !from || !to) return;
+              const troops = game.territories[from]?.troops ?? 0;
+              const dice = Math.min(3, troops - 1);
+              if (dice < 1) return;
+
+              // When auto-roll is on, we let the loop handle it.
+              if (autoRoll) return;
+
+              send({
+                type: "attack/roll",
+                gameId,
+                from,
+                to,
+                attackerDice: dice as 1 | 2 | 3,
+              });
+            }}
+          />
+        )}
+
+        {hud}
+      </div>
+    </div>
+  );
 }
+
+const panelStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.88)",
+  border: "1px solid rgba(0,0,0,0.08)",
+  borderRadius: 14,
+  padding: 12,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+  backdropFilter: "blur(10px)",
+  maxWidth: 420,
+};
+
+const panelTitleStyle: React.CSSProperties = {
+  fontWeight: 800,
+  letterSpacing: 0.2,
+  marginBottom: 8,
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 4,
+  fontSize: 12,
+  opacity: 0.9,
+};
+
+const inputStyle: React.CSSProperties = {
+  width: 140,
+  padding: "8px 10px",
+  borderRadius: 10,
+  border: "1px solid rgba(0,0,0,0.15)",
+  outline: "none",
+};
+
+const selectStyle: React.CSSProperties = {
+  width: 90,
+  padding: "8px 10px",
+  borderRadius: 10,
+  border: "1px solid rgba(0,0,0,0.15)",
+  outline: "none",
+};
+
+const buttonStyle: React.CSSProperties = {
+  padding: "9px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(0,0,0,0.15)",
+  background: "white",
+  cursor: "pointer",
+};

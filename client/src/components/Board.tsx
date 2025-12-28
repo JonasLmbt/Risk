@@ -23,6 +23,8 @@ type Props = {
   onAttack?: (from: TerritoryId, to: TerritoryId) => void;
 };
 
+type ViewBox = { x: number; y: number; w: number; h: number };
+
 function colorForPlayer(game: GameState, ownerId: string | null, fallback?: string): string {
   if (!ownerId) return fallback ?? "#eaeaea";
   const idx = game.players.findIndex((p) => p.id === ownerId);
@@ -124,6 +126,17 @@ function getPathMidpoint(path: SVGPathElement): { x: number; y: number } {
   return { x: p.x, y: p.y };
 }
 
+function expandViewBox(box: ViewBox, pad: number): ViewBox {
+  return { x: box.x - pad, y: box.y - pad, w: box.w + pad * 2, h: box.h + pad * 2 };
+}
+
+function zoomAt(vb: ViewBox, px: number, py: number, factor: number): ViewBox {
+  // Zoom around point (px,py) in SVG coords
+  const nx = px - (px - vb.x) / factor;
+  const ny = py - (py - vb.y) / factor;
+  return { x: nx, y: ny, w: vb.w / factor, h: vb.h / factor };
+}
+
 export function Board({
   game,
   playerId,
@@ -133,13 +146,13 @@ export function Board({
   fortifyFrom,
   fortifyTo,
   onTerritoryClick,
-  onAttack
+  onAttack,
 }: Props) {
   const [hovered, setHovered] = useState<TerritoryId | null>(null);
 
   const isMyTurn = game.status === "running" && game.currentPlayerId === playerId;
 
-  // UI state per territory
+  // ---------- Clickability / UI ----------
   const territoryUi = useMemo(() => {
     const ui = new Map<TerritoryId, { clickable: boolean; opacity: number; selected: boolean }>();
 
@@ -187,202 +200,298 @@ export function Board({
     return ui;
   }, [game, playerId, isMyTurn, mode, attackFrom, attackTo, fortifyFrom, fortifyTo]);
 
-  // Unique edges (undirected) for debug neighbor lines
-  const edges = useMemo(() => {
-    const out: Array<{ a: TerritoryId; b: TerritoryId }> = [];
-    const seen = new Set<string>();
-
-    for (const t of currentMap.territories) {
-      for (const nb of t.neighbors) {
-        const key = [t.id, nb].sort().join("-");
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push({ a: t.id, b: nb });
-      }
-    }
-    return out;
-  }, []);
-
-  // Hold refs to actual SVGPathElements so we can compute midpoints
+  // ---------- Midpoints for troop labels ----------
   const pathRefs = useRef(new Map<TerritoryId, SVGPathElement>());
-
-  // Computed centers (midpoints) for neighbor lines
   const [centers, setCenters] = useState<Map<TerritoryId, { x: number; y: number }>>(new Map());
 
   useEffect(() => {
     const next = new Map<TerritoryId, { x: number; y: number }>();
-
     for (const l of currentMapLayout.territories) {
       const el = pathRefs.current.get(l.id);
       if (!el) continue;
       next.set(l.id, getPathMidpoint(el));
     }
-
     setCenters(next);
-  }, [currentMapLayout]);
+  }, []);
+
+  // ---------- ViewBox (auto-fit + zoom/pan) ----------
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const contentGroupRef = useRef<SVGGElement | null>(null);
+
+  const [baseViewBox, setBaseViewBox] = useState<ViewBox>({ x: 0, y: 0, w: 1100, h: 760 });
+  const [viewBox, setViewBox] = useState<ViewBox>(baseViewBox);
+
+  const MIN_ZOOM = 1; // fit
+  const MAX_ZOOM = 6; // zoom in max
+
+  function currentZoom(vb: ViewBox): number {
+    return baseViewBox.w / vb.w;
+  }
+
+  // Compute base viewBox from actual content (territories/lines/continents)
+  useEffect(() => {
+    const g = contentGroupRef.current;
+    if (!g) return;
+
+    const raf = requestAnimationFrame(() => {
+      try {
+        const bb = g.getBBox();
+        if (bb.width > 0 && bb.height > 0) {
+          const padded = expandViewBox({ x: bb.x, y: bb.y, w: bb.width, h: bb.height }, 30);
+          setBaseViewBox(padded);
+          setViewBox(padded);
+        }
+      } catch {
+        // ignored
+      }
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Wheel zoom (zoom around mouse pointer)
+  function handleWheel(e: React.WheelEvent<SVGSVGElement>) {
+    e.preventDefault();
+
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+    const mx = ((e.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x;
+    const my = ((e.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
+
+    const factor = e.deltaY > 0 ? 1 / 1.12 : 1.12;
+    const next = zoomAt(viewBox, mx, my, factor);
+
+    const z = currentZoom(next);
+
+    if (z < MIN_ZOOM) {
+      setViewBox(baseViewBox);
+      return;
+    }
+
+    if (z > MAX_ZOOM) {
+      const targetW = baseViewBox.w / MAX_ZOOM;
+      const targetFactor = viewBox.w / targetW;
+      setViewBox(zoomAt(viewBox, mx, my, targetFactor));
+      return;
+    }
+
+    setViewBox(next);
+  }
+
+  // Drag pan
+  const panRef = useRef<{ dragging: boolean; sx: number; sy: number; startVB: ViewBox } | null>(null);
+
+  function handleMouseDown(e: React.MouseEvent<SVGSVGElement>) {
+    if (e.button !== 0) return;
+    panRef.current = { dragging: true, sx: e.clientX, sy: e.clientY, startVB: viewBox };
+  }
+
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    const pan = panRef.current;
+    const svg = svgRef.current;
+    if (!pan?.dragging || !svg) return;
+
+    const rect = svg.getBoundingClientRect();
+    const dxPx = e.clientX - pan.sx;
+    const dyPx = e.clientY - pan.sy;
+
+    const dx = (dxPx / rect.width) * pan.startVB.w;
+    const dy = (dyPx / rect.height) * pan.startVB.h;
+
+    setViewBox({ ...pan.startVB, x: pan.startVB.x - dx, y: pan.startVB.y - dy });
+  }
+
+  function endPan() {
+    const pan = panRef.current;
+    if (!pan) return;
+    pan.dragging = false;
+    panRef.current = pan;
+  }
+
+  function handleDoubleClick() {
+    setViewBox(baseViewBox);
+  }
+
+  // ---------- Background ----------
+  const bgColor = currentMapLayout.backgroundColor ?? "#ffffff";
+  const bgImage = currentMapLayout.backgroundImage;
 
   return (
-    <div style={{ marginTop: 12 }}>
+    <div style={{ width: "100%", height: "100%" }}>
       <svg
-        viewBox="0 0 1100 760"
-        width="100%"
-        style={{ width: "auto", height: "auto" }}
+        ref={svgRef}
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ width: "100%", height: "100%", display: "block", touchAction: "none" }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={endPan}
+        onMouseLeave={endPan}
+        onDoubleClick={handleDoubleClick}
       >
-        {currentMapLayout.lines?.length ? (
-          <g>
-            {currentMapLayout.lines.map((ln) => (
-              <path
-                key={ln.id}
-                d={ln.d}
-                fill="none"
-                stroke="#444"
-                strokeWidth={ln.strokeWidth ?? 3}
-                opacity={ln.opacity ?? 0.6}
-                strokeDasharray={ln.style === "dashed" ? "3 3" : undefined}
-                strokeLinecap="round"
-              />
-            ))}
-          </g>
-        ) : null}
+        {/* Background layer (zooms/pans with the map) */}
+        <g>
+          <rect
+            x={baseViewBox.x}
+            y={baseViewBox.y}
+            width={baseViewBox.w}
+            height={baseViewBox.h}
+            fill={bgColor}
+          />
 
-        {/* territories */}
-        {currentMapLayout.territories.map((l) => {
-          const id = l.id;
-          const st = game.territories[id];
-          const owner = st?.ownerId ?? null;
-          const troops = st?.troops ?? 0;
+          {bgImage ? (
+            <image
+              href={bgImage}
+              x={baseViewBox.x}
+              y={baseViewBox.y}
+              width={baseViewBox.w}
+              height={baseViewBox.h}
+              preserveAspectRatio="xMidYMid slice"
+              opacity={1}
+            />
+          ) : null}
+        </g>
 
-          const ui = territoryUi.get(id)!;
-          const fill = colorForPlayer(game, owner);
-
-          const isHovered = hovered === id;
-
-          // Hover effect only when it makes sense
-          const hoverable = ui.clickable; // or true if you want hover on all
-
-          const opacity = hoverable && isHovered ? Math.min(1, ui.opacity + 0.25) : ui.opacity;
-          const strokeWidth = (ui.selected ? 2.5 : 1.5) + (hoverable && isHovered ? 1.0 : 0);
-
-          return (
-            <g key={id}>
-              <path
-                ref={(el) => {
-                  if (el) pathRefs.current.set(id, el);
-                }}
-                d={l.d}
-                fill={fill}
-                opacity={opacity}
-                stroke={ui.selected || (hoverable && isHovered) ? "#0000007c" : "#2b2b2b80"}
-                strokeWidth={strokeWidth}
-                style={{
-                  cursor: ui.clickable ? "pointer" : "default",
-                  transition: "opacity 120ms ease, stroke-width 120ms ease, filter 120ms ease",
-                  // makes it “pop” without true scaling
-                  filter: hoverable && isHovered ? "drop-shadow(0px 2px 3px rgba(0,0,0,0.25))" : "none",
-                }}
-                onMouseEnter={() => {
-                  if (!hoverable) return;
-                  setHovered(id);
-                }}
-                onMouseLeave={() => {
-                  if (!hoverable) return;
-                  setHovered(null);
-                }}
-                onClick={() => {
-                  if (!ui.clickable) return;
-                  // Attack 
-                  if (
-                    mode === "attack" &&
-                    attackFrom &&
-                    canAttackTo(game, playerId!, attackFrom, id) &&
-                    typeof onAttack === "function"
-                  ) {
-                    onAttack(attackFrom, id);
-                  } else {
-                    onTerritoryClick(id);
-                  }
-                }}
-              />
-
-              {(() => {
-                const c = centers.get(id);
-                const x = l.labelX ?? c?.x ?? 0;
-                const y = l.labelY ?? c?.y ?? 0;
-
-                return (
-                  <text
-                    x={x}
-                    y={y}
-                    fontSize={12}
-                    fontWeight={600}
-                    fill="#111"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    style={{
-                      pointerEvents: "none",
-                      transition: "transform 120ms ease, opacity 120ms ease",
-                      opacity: hoverable && isHovered ? 1 : 0.9,
-                    }}
-                  >
-                    {troops}
-                  </text>
-                );
-              })()}
+        {/* Actual map content */}
+        <g ref={contentGroupRef}>
+          {currentMapLayout.lines?.length ? (
+            <g>
+              {currentMapLayout.lines.map((ln) => (
+                <path
+                  key={ln.id}
+                  d={ln.d}
+                  fill="none"
+                  stroke="#444"
+                  strokeWidth={ln.strokeWidth ?? 3}
+                  opacity={ln.opacity ?? 0.6}
+                  strokeDasharray={ln.style === "dashed" ? "3 3" : undefined}
+                  strokeLinecap="round"
+                />
+              ))}
             </g>
-          );
-        })}
+          ) : null}
 
-        {/* continents */}
-        {currentMapLayout.continents?.map((c) => {
-          const id = c.id;
-          const st = game.continents[id];
-          const owner = st?.ownerId ?? null;
+          {currentMapLayout.territories.map((l) => {
+            const id = l.id;
+            const st = game.territories[id];
+            const owner = st?.ownerId ?? null;
+            const troops = st?.troops ?? 0;
 
-          // your base color
-          const borderColour = owner ? colorForPlayer(game, owner).replace(/(\d+%)$/, "48%") : "#888";
+            const ui = territoryUi.get(id)!;
+            const fill = colorForPlayer(game, owner);
 
-          // optional: slightly brighter glow than the border
-          const glowColour = owner ? colorForPlayer(game, owner).replace(/(\d+%)$/, "62%") : "#9aa0a6";
+            const isHovered = hovered === id;
+            const hoverable = ui.clickable;
 
-          return (
-            <g key={id} style={{ pointerEvents: "none" }}>
-              {/* GLOW / SHADOW */}
-              <path
-                d={c.d}
-                fill="none"
-                stroke={glowColour}
-                strokeWidth={4}                 // glow thickness
-                opacity={0.65}                  // glow intensity
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                style={{
-                  filter: "blur(3px)",          // glow softness
-                }}
-              />
+            const opacity = hoverable && isHovered ? Math.min(1, ui.opacity + 0.25) : ui.opacity;
+            const strokeWidth = (ui.selected ? 2.5 : 1.5) + (hoverable && isHovered ? 1.0 : 0);
 
-              {/* CRISP OUTLINE */}
-              <path
-                d={c.d}
-                fill="none"
-                stroke={borderColour}
-                strokeWidth={1.5}
-                opacity={1}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
-            </g>
-          );
-        })}
+            return (
+              <g key={id}>
+                <path
+                  ref={(el) => {
+                    if (el) pathRefs.current.set(id, el);
+                  }}
+                  d={l.d}
+                  fill={fill}
+                  opacity={opacity}
+                  stroke={ui.selected || (hoverable && isHovered) ? "#0000007c" : "#2b2b2b80"}
+                  strokeWidth={strokeWidth}
+                  style={{
+                    cursor: ui.clickable ? "pointer" : "default",
+                    transition: "opacity 120ms ease, stroke-width 120ms ease, filter 120ms ease",
+                    filter: hoverable && isHovered ? "drop-shadow(0px 2px 3px rgba(0,0,0,0.25))" : "none",
+                  }}
+                  onMouseEnter={() => {
+                    if (!hoverable) return;
+                    setHovered(id);
+                  }}
+                  onMouseLeave={() => {
+                    if (!hoverable) return;
+                    setHovered(null);
+                  }}
+                  onClick={() => {
+                    if (!ui.clickable) return;
+
+                    if (
+                      mode === "attack" &&
+                      attackFrom &&
+                      canAttackTo(game, playerId!, attackFrom, id) &&
+                      typeof onAttack === "function"
+                    ) {
+                      onAttack(attackFrom, id);
+                    } else {
+                      onTerritoryClick(id);
+                    }
+                  }}
+                />
+
+                {(() => {
+                  const c = centers.get(id);
+                  const x = l.labelX ?? c?.x ?? 0;
+                  const y = l.labelY ?? c?.y ?? 0;
+
+                  return (
+                    <text
+                      x={x}
+                      y={y}
+                      fontSize={12}
+                      fontWeight={600}
+                      fill="#111"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      style={{
+                        pointerEvents: "none",
+                        transition: "opacity 120ms ease",
+                        opacity: hoverable && isHovered ? 1 : 0.9,
+                      }}
+                    >
+                      {troops}
+                    </text>
+                  );
+                })()}
+              </g>
+            );
+          })}
+
+          {currentMapLayout.continents?.map((c) => {
+            const id = c.id;
+            const st = game.continents[id];
+            const owner = st?.ownerId ?? null;
+
+            const borderColour = owner ? colorForPlayer(game, owner).replace(/(\d+%)$/, "48%") : "#888";
+            const glowColour = owner ? colorForPlayer(game, owner).replace(/(\d+%)$/, "62%") : "#9aa0a6";
+
+            return (
+              <g key={id} style={{ pointerEvents: "none" }}>
+                <path
+                  d={c.d}
+                  fill="none"
+                  stroke={glowColour}
+                  strokeWidth={4}
+                  opacity={0.65}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  style={{ filter: "blur(3px)" }}
+                />
+
+                <path
+                  d={c.d}
+                  fill="none"
+                  stroke={borderColour}
+                  strokeWidth={1.5}
+                  opacity={1}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              </g>
+            );
+          })}
+        </g>
       </svg>
-
-      <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>
-        {mode === "none" && "No actions available right now."}
-        {mode === "reinforcement" && "Click a highlighted territory to place +1 troop."}
-        {mode === "attack" &&
-          (!attackFrom ? "Pick an origin territory (yours, >=2 troops)." : "Pick a highlighted enemy neighbor to attack.")}
-        {mode === "fortify" &&
-          (!fortifyFrom ? "Pick a territory (yours, >=2 troops) to move FROM." : "Pick a highlighted territory to move TO (connected owned path).")}
-      </div>
     </div>
   );
 }

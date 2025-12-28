@@ -120,4 +120,5 @@ export const world42Layout: MapLayout = {
   territories: world42Territories,
   continents: world42Continents,
   lines: world42Lines,
+  backgroundColor: "#ffffffff",
 }
