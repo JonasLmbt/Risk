@@ -85,6 +85,7 @@ export function attackRoll(
 
   if (next.territories[to].troops <= 0) {
     conquered = true;
+    // Mark that player has conquered this turn and gets a card
     next.cards.conqueredThisTurn = true;
 
     // Territory is conquered but troops are not moved yet

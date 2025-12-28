@@ -158,7 +158,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ padding: 16, fontFamily: "system-ui, sans-serif", maxWidth: 900 }}>
+    <div style={{ padding: 16, fontFamily: "system-ui, sans-serif", maxWidth: 1500 }}>
       <h1>Risk Online</h1>
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -223,7 +223,15 @@ export default function App() {
         <>
           <h2 style={{ marginTop: 16 }}>Board</h2>
 
-          <div style={{ width: "100%", maxWidth: 1400, margin: "0 auto" }}>
+          <div
+            style={{
+              height: "100%",         
+              width: "100%",
+              border: "1px solid #ddd",
+              borderRadius: 12,
+              overflow: "hidden",
+            }}
+          >
             <Board
               game={game}
               playerId={playerId}

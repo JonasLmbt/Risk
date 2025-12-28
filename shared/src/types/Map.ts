@@ -29,3 +29,24 @@ export type MapDefinition = {
   territories: TerritoryDefinition[];
   continents: Continent[];
 };
+
+export type MapLayout = {
+  territories: TerritoryPathLayout[];
+  lines?: LineLayout[];
+};
+
+export type LineLayout = {
+  id: string;
+  d: string; // SVG path
+  style?: "dashed" | "solid";
+  strokeWidth?: number;
+  strokeDasharray?: string;
+  opacity?: number;
+};
+
+export type TerritoryPathLayout = {
+  id: TerritoryId;
+  d: string;      // SVG path (closed)
+  labelX?: number; 
+  labelY?: number;
+};

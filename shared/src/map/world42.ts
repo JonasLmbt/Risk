@@ -3,12 +3,9 @@ import type { MapDefinition } from "../types/Map";
 /**
  * Original, Risk-like world map with 42 territories.
  * This is NOT a reconstruction of the Hasbro board:
- * - Simplified geometry
  * - Slightly adjusted adjacency
- * - Intended for mechanics + analysis
- *
- * Territory IDs: T01..T42
  */
+
 export const world42: MapDefinition = {
   id: "world42",
   name: "World 42",

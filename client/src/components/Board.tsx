@@ -139,7 +139,7 @@ export function Board({
   const territoryUi = useMemo(() => {
     const ui = new Map<TerritoryId, { clickable: boolean; opacity: number; selected: boolean }>();
 
-    for (const l of currentMapLayout) {
+    for (const l of currentMapLayout.territories) {
       const id = l.id;
       let clickable = false;
       let opacity = 0.35;
@@ -208,7 +208,7 @@ export function Board({
   useEffect(() => {
     const next = new Map<TerritoryId, { x: number; y: number }>();
 
-    for (const l of currentMapLayout) {
+    for (const l of currentMapLayout.territories) {
       const el = pathRefs.current.get(l.id);
       if (!el) continue;
       next.set(l.id, getPathMidpoint(el));
@@ -220,33 +220,29 @@ export function Board({
   return (
     <div style={{ marginTop: 12 }}>
       <svg
-        viewBox="0 0 1200 620"
+        viewBox="0 0 1100 760"
         width="100%"
-        style={{ maxWidth: "90vw", height: "auto" }}
+        style={{ width: "auto", height: "auto" }}
       >
-        {/* neighbor lines behind territories (debug-ish)
-        <g opacity={0.35}>
-          {edges.map((e) => {
-            const ca = centers.get(e.a);
-            const cb = centers.get(e.b);
-            if (!ca || !cb) return null;
-
-            return (
-              <line
-                key={`${e.a}-${e.b}`}
-                x1={ca.x}
-                y1={ca.y}
-                x2={cb.x}
-                y2={cb.y}
-                stroke="#333"
-                strokeWidth={2}
+        {currentMapLayout.lines?.length ? (
+          <g>
+            {currentMapLayout.lines.map((ln) => (
+              <path
+                key={ln.id}
+                d={ln.d}
+                fill="none"
+                stroke="#444"
+                strokeWidth={ln.strokeWidth ?? 3}
+                opacity={ln.opacity ?? 0.6}
+                strokeDasharray={ln.style === "dashed" ? "3 3" : undefined}
+                strokeLinecap="round"
               />
-            );
-          })}
-        </g> */}
+            ))}
+          </g>
+        ) : null}
 
         {/* territories */}
-        {currentMapLayout.map((l) => {
+        {currentMapLayout.territories.map((l) => {
           const id = l.id;
           const st = game.territories[id];
           const owner = st?.ownerId ?? null;
@@ -282,7 +278,7 @@ export function Board({
               
                 return (
                   <>
-                    <text x={x} y={y} fontSize={14} fontWeight={700} fill="#111" textAnchor="middle" dominantBaseline="middle">
+                    <text x={x} y={y} fontSize={12} fontWeight={600} fill="#111" textAnchor="middle" dominantBaseline="middle">
                       {troops}
                     </text>
                   </>

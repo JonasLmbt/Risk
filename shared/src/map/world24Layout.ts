@@ -1,13 +1,6 @@
-import type { TerritoryId } from "../types/Ids";
+import type { MapLayout, TerritoryPathLayout, LineLayout } from "../types/Map";
 
-export type TerritoryPathLayout = {
-  id: TerritoryId;
-  d: string;       // SVG path (closed)
-  labelX: number;
-  labelY: number;
-};
-
-export const world24Layout: TerritoryPathLayout[] = [
+export const world24TerritoryLayout: TerritoryPathLayout[] = [
   // Americas (left)
   { id: "T01", d: "M60 80 L140 55 L210 85 L185 140 L95 150 L55 115 Z", labelX: 85, labelY: 105 },
   { id: "T02", d: "M210 85 L295 70 L330 110 L300 160 L205 150 L185 140 Z", labelX: 235, labelY: 120 },
@@ -43,3 +36,10 @@ export const world24Layout: TerritoryPathLayout[] = [
   { id: "T23", d: "M1040 255 L1115 245 L1165 290 L1135 340 L1065 335 L1025 310 Z", labelX: 1065, labelY: 295 },
   { id: "T24", d: "M1045 485 L1115 470 L1175 505 L1150 555 L1080 560 L1035 520 Z", labelX: 1070, labelY: 525 }
 ];
+
+export const world24LineLayout: LineLayout[] = [];
+
+export const world24Layout: MapLayout = {
+  territories: world24TerritoryLayout,
+  lines: world24LineLayout
+};
