@@ -1,5 +1,6 @@
 import type { GameState, TerritoryId } from "@risk/shared";
 import { currentMap, currentMapLayout } from "@risk/shared";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 type BoardMode = "none" | "reinforcement" | "attack" | "fortify";
 
@@ -116,13 +117,10 @@ function canFortifyTo(game: GameState, playerId: string, from: TerritoryId, to: 
   );
 }
 
-function centerOf(points: string): { x: number; y: number } {
-  const pts = points.split(" ").map((p) => p.split(",").map(Number));
-  const xs = pts.map((p) => p[0]);
-  const ys = pts.map((p) => p[1]);
-  const x = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const y = (Math.min(...ys) + Math.max(...ys)) / 2;
-  return { x, y };
+function getPathMidpoint(path: SVGPathElement): { x: number; y: number } {
+  const len = path.getTotalLength();
+  const p = path.getPointAtLength(len * 0.5);
+  return { x: p.x, y: p.y };
 }
 
 export function Board({
@@ -137,81 +135,115 @@ export function Board({
 }: Props) {
   const isMyTurn = game.status === "running" && game.currentPlayerId === playerId;
 
-  // Determine clickability + opacity per territory
-  const territoryUi = new Map<TerritoryId, { clickable: boolean; opacity: number; selected: boolean }>();
+  // UI state per territory
+  const territoryUi = useMemo(() => {
+    const ui = new Map<TerritoryId, { clickable: boolean; opacity: number; selected: boolean }>();
 
-  for (const l of currentMapLayout) {
-    const id = l.id;
-    let clickable = false;
-    let opacity = 0.35;
-    let selected = false;
+    for (const l of currentMapLayout) {
+      const id = l.id;
+      let clickable = false;
+      let opacity = 0.35;
+      let selected = false;
 
-    if (!playerId || !isMyTurn || mode === "none") {
-      clickable = false;
-      opacity = 0.25;
-    } else if (mode === "reinforcement") {
-      clickable = canReinforce(game, playerId, id);
-      opacity = clickable ? 1.0 : 0.2;
-    } else if (mode === "attack") {
-      if (!attackFrom) {
-        clickable = canAttackFrom(game, playerId, id);
+      if (!playerId || !isMyTurn || mode === "none") {
+        clickable = false;
+        opacity = 0.25;
+      } else if (mode === "reinforcement") {
+        clickable = canReinforce(game, playerId, id);
         opacity = clickable ? 1.0 : 0.2;
-      } else if (!attackTo) {
-        clickable = canAttackTo(game, playerId, attackFrom, id);
-        opacity = clickable ? 1.0 : id === attackFrom ? 1.0 : 0.15;
-      } else {
-        // both selected: allow clicks only to re-pick quickly
-        clickable = canAttackFrom(game, playerId, id) || canAttackTo(game, playerId, attackFrom, id);
-        opacity = clickable ? 0.9 : 0.15;
+      } else if (mode === "attack") {
+        if (!attackFrom) {
+          clickable = canAttackFrom(game, playerId, id);
+          opacity = clickable ? 1.0 : 0.2;
+        } else if (!attackTo) {
+          clickable = canAttackTo(game, playerId, attackFrom, id);
+          opacity = clickable ? 1.0 : id === attackFrom ? 1.0 : 0.15;
+        } else {
+          clickable = canAttackFrom(game, playerId, id) || canAttackTo(game, playerId, attackFrom, id);
+          opacity = clickable ? 0.9 : 0.15;
+        }
+        selected = id === attackFrom || id === attackTo;
+      } else if (mode === "fortify") {
+        if (!fortifyFrom) {
+          clickable = canFortifyFrom(game, playerId, id);
+          opacity = clickable ? 1.0 : 0.2;
+        } else if (!fortifyTo) {
+          clickable = canFortifyTo(game, playerId, fortifyFrom, id) || id === fortifyFrom;
+          opacity = clickable ? 1.0 : 0.15;
+        } else {
+          clickable = canFortifyFrom(game, playerId, id) || canFortifyTo(game, playerId, fortifyFrom, id);
+          opacity = clickable ? 0.9 : 0.15;
+        }
+        selected = id === fortifyFrom || id === fortifyTo;
       }
 
-      selected = id === attackFrom || id === attackTo;
-    } else if (mode === "fortify") {
-      if (!fortifyFrom) {
-        clickable = canFortifyFrom(game, playerId, id);
-        opacity = clickable ? 1.0 : 0.2;
-      } else if (!fortifyTo) {
-        clickable = canFortifyTo(game, playerId, fortifyFrom, id) || id === fortifyFrom;
-        opacity = clickable ? 1.0 : 0.15;
-      } else {
-        clickable = canFortifyFrom(game, playerId, id) || canFortifyTo(game, playerId, fortifyFrom, id);
-        opacity = clickable ? 0.9 : 0.15;
+      ui.set(id, { clickable, opacity, selected });
+    }
+
+    return ui;
+  }, [game, playerId, isMyTurn, mode, attackFrom, attackTo, fortifyFrom, fortifyTo]);
+
+  // Unique edges (undirected) for debug neighbor lines
+  const edges = useMemo(() => {
+    const out: Array<{ a: TerritoryId; b: TerritoryId }> = [];
+    const seen = new Set<string>();
+
+    for (const t of currentMap.territories) {
+      for (const nb of t.neighbors) {
+        const key = [t.id, nb].sort().join("-");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ a: t.id, b: nb });
       }
+    }
+    return out;
+  }, []);
 
-      selected = id === fortifyFrom || id === fortifyTo;
+  // Hold refs to actual SVGPathElements so we can compute midpoints
+  const pathRefs = useRef(new Map<TerritoryId, SVGPathElement>());
+
+  // Computed centers (midpoints) for neighbor lines
+  const [centers, setCenters] = useState<Map<TerritoryId, { x: number; y: number }>>(new Map());
+
+  useEffect(() => {
+    const next = new Map<TerritoryId, { x: number; y: number }>();
+
+    for (const l of currentMapLayout) {
+      const el = pathRefs.current.get(l.id);
+      if (!el) continue;
+      next.set(l.id, getPathMidpoint(el));
     }
 
-    territoryUi.set(id, { clickable, opacity, selected });
-  }
-
-  // Draw neighbor lines
-  const edges: Array<{ a: TerritoryId; b: TerritoryId }> = [];
-  const seen = new Set<string>();
-  for (const t of currentMap.territories) {
-    for (const nb of t.neighbors) {
-      const key = [t.id, nb].sort().join("-");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      edges.push({ a: t.id, b: nb });
-    }
-  }
-
-  const centers = new Map<TerritoryId, { x: number; y: number }>();
-  for (const l of currentMapLayout) {
-    centers.set(l.id, { x: l.labelX, y: l.labelY });
-  }
+    setCenters(next);
+  }, [currentMapLayout]);
 
   return (
     <div style={{ marginTop: 12 }}>
-      <svg viewBox="0 0 1200 620" width="100%" style={{ maxWidth: 1000, display: "block" }}>
-        {/* neighbor lines behind territories */}
+      <svg
+        viewBox="0 0 1200 620"
+        width="100%"
+        style={{ maxWidth: "90vw", height: "auto" }}
+      >
+        {/* neighbor lines behind territories (debug-ish)
         <g opacity={0.35}>
           {edges.map((e) => {
-            const ca = centers.get(e.a)!;
-            const cb = centers.get(e.b)!;
-            return <line key={`${e.a}-${e.b}`} x1={ca.x} y1={ca.y} x2={cb.x} y2={cb.y} stroke="#333" strokeWidth={2} />;
+            const ca = centers.get(e.a);
+            const cb = centers.get(e.b);
+            if (!ca || !cb) return null;
+
+            return (
+              <line
+                key={`${e.a}-${e.b}`}
+                x1={ca.x}
+                y1={ca.y}
+                x2={cb.x}
+                y2={cb.y}
+                stroke="#333"
+                strokeWidth={2}
+              />
+            );
           })}
-        </g>
+        </g> */}
 
         {/* territories */}
         {currentMapLayout.map((l) => {
@@ -226,26 +258,39 @@ export function Board({
           return (
             <g key={id}>
               <path
+                ref={(el) => {
+                  if (el) pathRefs.current.set(id, el);
+                }}
                 d={l.d}
                 fill={fill}
                 opacity={ui.opacity}
-                stroke="#2b2b2b"
-                strokeWidth={1.5}
+                stroke={ui.selected ? "#000" : "#2b2b2b"}
+                strokeWidth={ui.selected ? 2.5 : 1.5}
                 style={{ cursor: ui.clickable ? "pointer" : "default" }}
                 onClick={() => {
                   if (!ui.clickable) return;
                   onTerritoryClick(id);
                 }}
               />
-              {/* selection overlay (subtle) */}
-              {ui.selected && <path d={l.d} fill="#000" opacity={0.08} stroke="#000" strokeWidth={2} />}
-              {/* labels */}
-              <text x={l.labelX} y={l.labelY} fontSize={14} fontWeight={700} fill="#111">
-                {id}
-              </text>
-              <text x={l.labelX} y={l.labelY + 18} fontSize={12} fill="#111" opacity={0.9}>
-                troops: {troops}
-              </text>
+
+              {/* labels (use your existing labelX/Y if present; fallback to computed center)
+              {(() => {
+                const c = centers.get(id);
+
+                const x = l.labelX ?? c?.x ?? 0;
+                const y = l.labelY ?? c?.y ?? 0;
+              
+                return (
+                  <>
+                    <text x={x} y={y} fontSize={14} fontWeight={700} fill="#111" textAnchor="middle" dominantBaseline="middle">
+                      {id}
+                    </text>
+                    <text x={x} y={y + 18} fontSize={12} fill="#111" opacity={0.9} textAnchor="middle" dominantBaseline="middle">
+                      troops: {troops}
+                    </text>
+                  </>
+                );
+              })()} */}
             </g>
           );
         })}
@@ -254,8 +299,10 @@ export function Board({
       <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>
         {mode === "none" && "No actions available right now."}
         {mode === "reinforcement" && "Click a highlighted territory to place +1 troop."}
-        {mode === "attack" && (!attackFrom ? "Pick an origin territory (yours, >=2 troops)." : "Pick a highlighted enemy neighbor to attack.")}
-        {mode === "fortify" && (!fortifyFrom ? "Pick a territory (yours, >=2 troops) to move FROM." : "Pick a highlighted territory to move TO (connected owned path).")}
+        {mode === "attack" &&
+          (!attackFrom ? "Pick an origin territory (yours, >=2 troops)." : "Pick a highlighted enemy neighbor to attack.")}
+        {mode === "fortify" &&
+          (!fortifyFrom ? "Pick a territory (yours, >=2 troops) to move FROM." : "Pick a highlighted territory to move TO (connected owned path).")}
       </div>
     </div>
   );

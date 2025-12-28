@@ -42,6 +42,7 @@ export function advancePhase(state: GameState): GameState {
   if (next.phase === "reinforcement") {
     next.phase = "attack";
     next.reinforcementPool = 0;
+    next.cards.conqueredThisTurn = false;
     next.log.push("Phase changed: attack");
     return next;
   }

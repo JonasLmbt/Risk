@@ -10,59 +10,69 @@ import type { MapDefinition } from "../types/Map";
  * Territory IDs: T01..T42
  */
 export const world42: MapDefinition = {
+  id: "world42",
+  name: "World 42",
   territories: [
-    // North America (9) - T01..T09
-    { id: "T01", name: "Alaska", neighbors: ["T02", "T04", "T21"] },
-    { id: "T02", name: "Northwest", neighbors: ["T01", "T03", "T04"] },
-    { id: "T03", name: "Greenland", neighbors: ["T02", "T04", "T05", "T10"] },
-    { id: "T04", name: "Alberta", neighbors: ["T01", "T02", "T03", "T05", "T06"] },
-    { id: "T05", name: "Ontario", neighbors: ["T03", "T04", "T06", "T07"] },
-    { id: "T06", name: "Western US", neighbors: ["T04", "T05", "T07", "T08"] },
-    { id: "T07", name: "Eastern US", neighbors: ["T05", "T06", "T08"] },
-    { id: "T08", name: "Central America", neighbors: ["T06", "T07", "T09"] },
-    { id: "T09", name: "Caribbean Coast", neighbors: ["T08", "T13"] }, // custom connector into South America
+    // North America (9) - T00..T08
+    { id: "T00", name: "Alaska", neighbors: ["T01", "T05", "T405"] },
+    { id: "T01", name: "Alberta", neighbors: ["T00", "T05", "T06", "T08"] },
+    { id: "T02", name: "Central America", neighbors: ["T03", "T08", "T13"] },
+    { id: "T03", name: "Eastern US", neighbors: ["T02", "T06", "T07", "T08"] },
+    { id: "T04", name: "Greenland", neighbors: ["T05", "T06", "T07", "T21"] },
+    { id: "T05", name: "Northwest Territory", neighbors: ["T00", "T01", "T04", "T06"] },
+    { id: "T06", name: "Ontario", neighbors: ["T01", "T03", "T04", "T05", "T07", "T08"] },
+    { id: "T07", name: "Quebec", neighbors: ["T03", "T04", "T06"] },
+    { id: "T08", name: "Western US", neighbors: ["T01", "T02", "T03", "T06"] }, 
 
     // South America (4) - T10..T13
-    { id: "T10", name: "Venezuela", neighbors: ["T09", "T11", "T12"] },
-    { id: "T11", name: "Peru", neighbors: ["T10", "T12", "T13"] },
-    { id: "T12", name: "Brazil", neighbors: ["T10", "T11", "T13", "T19"] },
-    { id: "T13", name: "Argentina", neighbors: ["T11", "T12"] },
+    { id: "T10", name: "Argentina", neighbors: ["T11", "T12"] },
+    { id: "T11", name: "Brazil", neighbors: ["T10", "T12", "T13", "T34"] },
+    { id: "T12", name: "Peru", neighbors: ["T10", "T11", "T13"] },
+    { id: "T13", name: "Venezuela", neighbors: ["T02", "T11", "T12"] },
 
-    // Europe (7) - T14..T20
-    { id: "T14", name: "Iceland", neighbors: ["T03", "T15", "T16"] },
-    { id: "T15", name: "Great Britain", neighbors: ["T14", "T16", "T17"] },
-    { id: "T16", name: "Scandinavia", neighbors: ["T14", "T15", "T18", "T21"] }, // custom link to Ural-like
-    { id: "T17", name: "Western Europe", neighbors: ["T15", "T18", "T19", "T22"] },
-    { id: "T18", name: "Northern Europe", neighbors: ["T16", "T17", "T19", "T20"] },
-    { id: "T19", name: "Southern Europe", neighbors: ["T17", "T18", "T20", "T22", "T24"] },
-    { id: "T20", name: "Eastern Europe", neighbors: ["T18", "T19", "T21", "T24", "T25"] },
+    // Europe (7) - T20..T26
+    { id: "T20", name: "Great Britain", neighbors: ["T21", "T22", "T23", "T26"] },
+    { id: "T21", name: "Iceland", neighbors: ["T20", "T23", "T04"] },
+    { id: "T22", name: "Northern Europe", neighbors: ["T20", "T23", "T24", "T25", "T26"] }, 
+    { id: "T23", name: "Scandinavia", neighbors: ["T20", "T21", "T22", "T25"] },
+    { id: "T24", name: "Southern Europe", neighbors: ["T22", "T25", "T26", "T32", "T34"] },
+    { id: "T25", name: "Ukraine", neighbors: ["T22", "T23", "T24", "T400", "T406", "T410"] },
+    { id: "T26", name: "Western Europe", neighbors: ["T20", "T22", "T24", "T34"] },
 
-    // Africa (6) - T21..T26
-    { id: "T21", name: "North Africa", neighbors: ["T12", "T16", "T17", "T22", "T23"] }, // note: custom inter-continent for gameplay
-    { id: "T22", name: "Egypt", neighbors: ["T17", "T19", "T21", "T24", "T23"] },
-    { id: "T23", name: "Congo Basin", neighbors: ["T21", "T22", "T25", "T26"] },
-    { id: "T24", name: "East Africa", neighbors: ["T20", "T22", "T25", "T26", "T33"] },
-    { id: "T25", name: "South Africa", neighbors: ["T23", "T24", "T26"] },
-    { id: "T26", name: "Madagascar", neighbors: ["T23", "T24", "T25", "T38"] }, // custom link into island chain
+    // Africa (6) - T30..T35
+    { id: "T30", name: "Congo", neighbors: ["T31", "T32", "T34", "T35"] }, 
+    { id: "T31", name: "East Africa", neighbors: ["T30", "T32", "T33", "T34", "T35", "T406"] },
+    { id: "T32", name: "Egypt", neighbors: ["T31", "T34", "T24", "T406"] },
+    { id: "T33", name: "Madagascar", neighbors: ["T31", "T35"] },
+    { id: "T34", name: "North Africa", neighbors: ["T30", "T31", "T32", "T11", "T24", "T26"] },
+    { id: "T35", name: "South Africa", neighbors: ["T30", "T31", "T33"] },
 
-    // Asia (12) - T27..T38
-    { id: "T27", name: "Ural Frontier", neighbors: ["T16", "T20", "T28", "T29"] },
-    { id: "T28", name: "Siberia", neighbors: ["T27", "T29", "T30", "T31"] },
-    { id: "T29", name: "Central Steppe", neighbors: ["T27", "T28", "T32", "T33"] },
-    { id: "T30", name: "Yakut Highlands", neighbors: ["T28", "T31"] },
-    { id: "T31", name: "Kamchatka", neighbors: ["T28", "T30", "T35", "T01"] }, // far route to Alaska (kept for recognizability)
-    { id: "T32", name: "Mongolia", neighbors: ["T29", "T34", "T35"] },
-    { id: "T33", name: "Afghan Corridor", neighbors: ["T24", "T29", "T34", "T36"] },
-    { id: "T34", name: "Northern China", neighbors: ["T32", "T33", "T35", "T36"] },
-    { id: "T35", name: "Japan Arc", neighbors: ["T31", "T32", "T34"] },
-    { id: "T36", name: "India", neighbors: ["T33", "T34", "T37"] },
-    { id: "T37", name: "Southeast Peninsula", neighbors: ["T36", "T38"] },
-    { id: "T38", name: "Indonesian Seas", neighbors: ["T37", "T26", "T39", "T40"] },
+    // Asia (12) - T400..T411
+    { id: "T400", name: "Afghanistan", neighbors: ["T401", "T402", "T406", "T410", "T25"] },
+    { id: "T401", name: "China", neighbors: ["T400", "T402", "T407", "T408", "T409", "T410"] },
+    { id: "T402", name: "India", neighbors: ["T400", "T401", "T406", "T408"] },
+    { id: "T403", name: "Irkutsk", neighbors: ["T405", "T407", "T409", "T411"] },
+    { id: "T404", name: "Japan", neighbors: ["T405", "T407"] }, 
+    { id: "T405", name: "Kamchatka", neighbors: ["T403", "T407", "T411", "T00"] },
+    { id: "T406", name: "Middle East", neighbors: ["T400", "T402", "T24", "T25", "T31", "T32"] },
+    { id: "T407", name: "Mongolia", neighbors: ["T401", "T403", "T404", "T409"] },
+    { id: "T408", name: "Siam", neighbors: ["T401", "T402", "T51"] },
+    { id: "T409", name: "Siberia", neighbors: ["T401", "T403", "T407", "T410", "T411"] },
+    { id: "T410", name: "Ural", neighbors: ["T400", "T401", "T409", "T25"] },
+    { id: "T411", name: "Yakutsk", neighbors: ["T403", "T405", "T409"] },
 
-    // Australia/Oceania (4) - T39..T42
-    { id: "T39", name: "New Guinea", neighbors: ["T38", "T40"] },
-    { id: "T40", name: "Western Australia", neighbors: ["T38", "T39", "T41"] },
-    { id: "T41", name: "Eastern Australia", neighbors: ["T40", "T42"] },
-    { id: "T42", name: "Tasman Reach", neighbors: ["T41"] }
+    // Australia/Oceania (4) - T50..T53
+    { id: "T50", name: "Eastern Australia", neighbors: ["T52", "T53"] },
+    { id: "T51", name: "Indonesia", neighbors: ["T52", "T53", "T408"] },
+    { id: "T52", name: "New Guinea", neighbors: ["T50", "T51"] },
+    { id: "T53", name: "Western Australia", neighbors: ["T50", "T51"] }
+  ],
+  continents: [
+  { id: "C1", name: "North America", bonus: 5, territories: ["T00","T01","T02","T03","T04","T05","T06","T07","T08"] },
+  { id: "C2", name: "South America", bonus: 2, territories: ["T10","T11","T12","T13"] },
+  { id: "C3", name: "Europe",        bonus: 5, territories: ["T20","T21","T22","T23","T24","T25","T26"] },
+  { id: "C4", name: "Africa",        bonus: 3, territories: ["T30","T31","T32","T33","T34","T35"] },
+  { id: "C5", name: "Asia",          bonus: 7, territories: ["T400","T401","T402","T403","T404","T405","T406","T407","T408","T409","T410","T411"] },
+  { id: "C6", name: "Australia",     bonus: 2, territories: ["T50","T51","T52","T53"] }
   ]
 };

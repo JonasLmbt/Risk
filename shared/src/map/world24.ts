@@ -17,19 +17,21 @@ export const world24: MapDefinition = {
     { id: "T05", name: "South Coast", neighbors: ["T03", "T04", "T06", "T11"] }, // connects to West Africa
     { id: "T06", name: "Southern", neighbors: ["T05"] },
 
-    // Europe + Africa (8)
+    // Europe (4)
     { id: "T07", name: "Icelandic Ridge", neighbors: ["T08", "T10", "T02"] }, // sea-bridge from NE
     { id: "T08", name: "Western Europe", neighbors: ["T07", "T09", "T10", "T11"] },
     { id: "T09", name: "Eastern Europe", neighbors: ["T08", "T10", "T12", "T13"] },
     { id: "T10", name: "Northlands", neighbors: ["T07", "T08", "T09", "T14"] },
+
+    // Africa (4)
     { id: "T11", name: "West Africa", neighbors: ["T08", "T12", "T15", "T05"] }, // connects to South Coast
     { id: "T12", name: "East Africa", neighbors: ["T11", "T09", "T13", "T15", "T16"] },
-    { id: "T13", name: "Middle East", neighbors: ["T09", "T12", "T14", "T17"] },
-    { id: "T14", name: "Steppe Gate", neighbors: ["T10", "T13", "T18", "T19"] },
-
-    // Asia (8)
     { id: "T15", name: "South Africa", neighbors: ["T11", "T12", "T16"] },
     { id: "T16", name: "Madagascar Arc", neighbors: ["T12", "T15", "T22"] }, // connects to Oceania
+
+    // Asia (8)
+    { id: "T13", name: "Middle East", neighbors: ["T09", "T12", "T14", "T17"] },
+    { id: "T14", name: "Steppe Gate", neighbors: ["T10", "T13", "T18", "T19"] },
     { id: "T17", name: "India", neighbors: ["T13", "T18", "T20"] },
     { id: "T18", name: "Central Asia", neighbors: ["T14", "T17", "T19", "T20"] },
     { id: "T19", name: "Siberia", neighbors: ["T14", "T18", "T21"] },

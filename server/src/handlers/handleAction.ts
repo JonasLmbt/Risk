@@ -30,7 +30,7 @@ export function handleAction(envelope: ClientActionEnvelope): {
     const next = structuredClone(game);
     next.players.push({ id: playerId, name: action.name, connected: true });
     if (!next.hostId) next.hostId = playerId;
-    next.log.push(`${action.name} joined`);
+    next.log.push(`${action.name} (${playerId}) joined`);
     setGame(action.gameId, next);
     return { gameId: action.gameId, newState: next };
   }

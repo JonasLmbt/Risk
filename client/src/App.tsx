@@ -159,7 +159,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 16, fontFamily: "system-ui, sans-serif", maxWidth: 900 }}>
-      <h1>Risk-like Online (MVP)</h1>
+      <h1>Risk Online</h1>
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <label>
@@ -182,18 +182,6 @@ export default function App() {
 
         <button onClick={() => send({ type: "lobby/start", gameId })} disabled={!canStart}>
           Start (host)
-        </button>
-
-        <button
-          onClick={() => send({ type: "turn/endPhase", gameId })}
-          disabled={
-            !game ||
-            game.status !== "running" ||
-            game.currentPlayerId !== playerId ||
-            !!game.pendingConquest
-          }
-        >
-          End Phase
         </button>
       </div>
 
@@ -234,19 +222,35 @@ export default function App() {
       {game && (
         <>
           <h2 style={{ marginTop: 16 }}>Board</h2>
-          <Board
-            game={game}
-            playerId={playerId}
-            mode={boardMode}
-            attackFrom={attackFrom}
-            attackTo={attackTo}
-            fortifyFrom={fortifyFrom}
-            fortifyTo={fortifyTo}
-            onTerritoryClick={handleBoardSelect}
-          />
+
+          <div style={{ width: "100%", maxWidth: 1400, margin: "0 auto" }}>
+            <Board
+              game={game}
+              playerId={playerId}
+              mode={boardMode}
+              attackFrom={attackFrom}
+              attackTo={attackTo}
+              fortifyFrom={fortifyFrom}
+              fortifyTo={fortifyTo}
+              onTerritoryClick={handleBoardSelect}
+            />
+          </div>
         </>
       )}
 
+      <div style={{ marginTop: 12 }}>
+        <button
+            onClick={() => send({ type: "turn/endPhase", gameId })}
+            disabled={
+              !game ||
+              game.status !== "running" ||
+              game.currentPlayerId !== playerId ||
+              !!game.pendingConquest
+            }
+          >
+            End Phase
+        </button>
+      </div>
       {/* Only show the current action UI when it's your turn */}
       {game?.status === "running" && isMyTurn && game.phase === "reinforcement" && (
         <>

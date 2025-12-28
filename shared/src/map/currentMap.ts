@@ -1,5 +1,5 @@
-import { world24 } from "./world24";
-import { world24Layout } from "./world24Layout";
+import { world42 } from "./world42";
+import { world42Layout } from "./world42Layout";
 
-export const currentMap = world24;
-export const currentMapLayout = world24Layout;
+export const currentMap = world42;
+export const currentMapLayout = world42Layout;

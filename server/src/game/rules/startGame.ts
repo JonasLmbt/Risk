@@ -1,5 +1,6 @@
 import type { GameState } from "@risk/shared";
 import { assignContinents } from "./assignContinents";
+import { calculateReinforcement } from "./calculateReinforcements";
 
 export function startGame(state: GameState): GameState {
   if (state.status !== "lobby") return state;
@@ -57,7 +58,7 @@ export function startGame(state: GameState): GameState {
 
   next.currentPlayerId = next.players[0].id;
   next.phase = "reinforcement";
-  next.reinforcementPool = 3;
+  next.reinforcementPool = calculateReinforcement(next, next.currentPlayerId);
   next.fortifyUsed = false;
   next.pendingConquest = null;
   next.log.push("Game started");
