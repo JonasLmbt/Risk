@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useGame } from "./state/useGame";
 import type { TerritoryId } from "@risk/shared";
-import { currentMap } from "@risk/shared";
 import { Board } from "./components/Board";
 
 export default function App() {
@@ -203,35 +202,7 @@ export default function App() {
           <strong>Error:</strong> {lastError}
         </div>
       )}
-
       <hr style={{ margin: "16px 0" }} />
-
-      <div>
-        <div>
-          <strong>Your playerId:</strong> {playerId ?? "(connecting...)"}
-        </div>
-        <div>
-          <strong>Game status:</strong> {game?.status ?? "(no game)"}
-        </div>
-        <div>
-          <strong>Host:</strong> {game?.hostId ?? "-"}
-        </div>
-        <div>
-          <strong>Current player:</strong> {game?.currentPlayerId ?? "-"}
-        </div>
-        <div>
-          <strong>Phase:</strong> {game?.phase ?? "-"}
-        </div>
-        <div>
-          <strong>Reinforcement pool:</strong> {game?.reinforcementPool ?? 0}
-        </div>
-        {!!game && (
-          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
-            Your territories (debug): {myTerritories.length ? myTerritories.join(", ") : "(none)"}
-          </div>
-        )}
-      </div>
-
       {game && (
         <>
           <h2 style={{ marginTop: 16 }}>Board</h2>
@@ -458,6 +429,33 @@ export default function App() {
           <li key={i}>{line}</li>
         ))}
       </ul>
+
+      <h2>Debug Info</h2>
+      <div>
+        <div>
+          <strong>Your playerId:</strong> {playerId ?? "(connecting...)"}
+        </div>
+        <div>
+          <strong>Game status:</strong> {game?.status ?? "(no game)"}
+        </div>
+        <div>
+          <strong>Host:</strong> {game?.hostId ?? "-"}
+        </div>
+        <div>
+          <strong>Current player:</strong> {game?.currentPlayerId ?? "-"}
+        </div>
+        <div>
+          <strong>Phase:</strong> {game?.phase ?? "-"}
+        </div>
+        <div>
+          <strong>Reinforcement pool:</strong> {game?.reinforcementPool ?? 0}
+        </div>
+        {!!game && (
+          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
+            Your territories (debug): {myTerritories.length ? myTerritories.join(", ") : "(none)"}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

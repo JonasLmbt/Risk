@@ -333,29 +333,46 @@ export function Board({
         })}
 
         {/* continents */}
-        {currentMapLayout.continents &&
-          currentMapLayout.continents.map((c) => {
-            const id = c.id;
-            const st = game.continents[id];
-            const owner = st?.ownerId ?? null;
+        {currentMapLayout.continents?.map((c) => {
+          const id = c.id;
+          const st = game.continents[id];
+          const owner = st?.ownerId ?? null;
 
-            const borderColour = owner ? colorForPlayer(game, owner).replace(/(\d+%)$/, "48%") : "#888";
+          // your base color
+          const borderColour = owner ? colorForPlayer(game, owner).replace(/(\d+%)$/, "48%") : "#888";
 
-            return (
-              <g key={id}>
-                <path
-                  ref={(el) => {
-                    if (el) pathRefs.current.set(id, el);
-                  }}
-                  d={c.d}
-                  stroke={borderColour}
-                  strokeWidth={1.5}
-                  fill="none"
-                />
-              </g>
-            );
-          })}
-        
+          // optional: slightly brighter glow than the border
+          const glowColour = owner ? colorForPlayer(game, owner).replace(/(\d+%)$/, "62%") : "#9aa0a6";
+
+          return (
+            <g key={id} style={{ pointerEvents: "none" }}>
+              {/* GLOW / SHADOW */}
+              <path
+                d={c.d}
+                fill="none"
+                stroke={glowColour}
+                strokeWidth={4}                 // glow thickness
+                opacity={0.65}                  // glow intensity
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                style={{
+                  filter: "blur(3px)",          // glow softness
+                }}
+              />
+
+              {/* CRISP OUTLINE */}
+              <path
+                d={c.d}
+                fill="none"
+                stroke={borderColour}
+                strokeWidth={1.5}
+                opacity={1}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            </g>
+          );
+        })}
       </svg>
 
       <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>
