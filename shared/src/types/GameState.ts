@@ -12,6 +12,16 @@ export type GameStatus = "lobby" | "running" | "finished";
 
 export type Phase = "reinforcement" | "attack" | "fortify";
 
+export type BoardMode = "none" | "reinforcement" | "attack" | "fortify";
+
+export type CardKind = "infantry" | "cavalry" | "artillery" | "joker";
+
+export type UiCard = {
+  id: string;
+  territoryId?: TerritoryId;
+  kind: CardKind;
+};
+
 export type GameState = {
   id: GameId;
   status: GameStatus;

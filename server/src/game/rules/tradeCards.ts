@@ -1,4 +1,5 @@
 import type { GameState, Card } from "@risk/shared";
+import { addCardBonus } from "./calculateReinforcements";
 
 function tradeBonus(tradeCount: number): number {
   // 0->4, 1->6, 2->8, 3->10, 4->12, 5->15, 6->20, 7->25...
@@ -39,7 +40,7 @@ export function tradeCards(state: GameState, playerId: string, cardIds: string[]
 
   const bonus = tradeBonus(state.cards.tradeCount);
 
-  const next: GameState = structuredClone(state);
+  let next: GameState = structuredClone(state);
 
   // remove from hand
   next.cards.hands[playerId] = hand.filter((c) => !cardIds.includes(c.id));
@@ -47,11 +48,17 @@ export function tradeCards(state: GameState, playerId: string, cardIds: string[]
   // discard them
   next.cards.discard.push(...picked);
 
-  // grant bonus troops
-  next.reinforcementPool += bonus;
+  // increase bonus count
   next.cards.tradeCount += 1;
+
+  // grant reinforcements
+  next = addCardBonus(next, bonus);
 
   next.log.push(`TRADE by ${playerId}: +${bonus} troops`);
 
   return next;
+}
+
+export function getCurrentTradeBonus(state: GameState): number {
+  return tradeBonus(state.cards.tradeCount);
 }

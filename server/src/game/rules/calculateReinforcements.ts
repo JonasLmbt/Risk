@@ -27,3 +27,10 @@ export function calculateReinforcement(state: GameState, playerId: string): Game
 
   return next;
 }
+
+export function addCardBonus(state: GameState, bonus: number): GameState {
+  const next: GameState = structuredClone(state);
+  next.reinforcementPool += bonus;
+  next.reinforcementExplanation += `, Card trade: ${bonus}`;
+  return next;
+}

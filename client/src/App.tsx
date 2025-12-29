@@ -2,17 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { TerritoryId } from "@risk/shared";
 import { useGame } from "./state/useGame";
 import { Board } from "./components/Board";
-import { currentMapLayout } from "@risk/shared";
-
-type BoardMode = "none" | "reinforcement" | "attack" | "fortify";
-
-type CardKind = "infantry" | "cavalry" | "artillery" | "joker";
-
-type UiCard = {
-  id: string;
-  territoryId?: TerritoryId;
-  kind: CardKind;
-};
+import { currentMapLayout, BoardMode, CardKind, UiCard } from "@risk/shared";
 
 function isMyReinforcementTurn(game: any, playerId: string | null): boolean {
   return (

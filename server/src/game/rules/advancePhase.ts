@@ -68,6 +68,7 @@ function endTurn(state: GameState): GameState {
   const endingPlayerId = next.currentPlayerId!;
 
   // Draw card if player conquered at least one territory this turn
+  next.log.push(`Received conquest card: ${next.cards.conqueredThisTurn}`);
   if (next.cards.conqueredThisTurn) {
     next = drawCardFor(next, endingPlayerId);
   }

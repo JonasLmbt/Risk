@@ -1,5 +1,6 @@
 import type { GameState, TerritoryId } from "@risk/shared";
 import { currentMap } from "@risk/shared";
+import { advancePhase } from "./advancePhase";
 
 function neighborsOf(id: TerritoryId): TerritoryId[] {
   return currentMap.territories.find((t) => t.id === id)?.neighbors ?? [];
@@ -62,15 +63,5 @@ export function fortifyMove(
 
   next.fortifyUsed = true;
 
-  // Risk-style: after fortify, turn ends (for our MVP)
-  next.phase = "reinforcement";
-  const idx = next.players.findIndex((p) => p.id === next.currentPlayerId);
-  const nextIdx = (idx + 1) % next.players.length;
-  next.currentPlayerId = next.players[nextIdx]?.id ?? next.currentPlayerId;
-  next.fortifyUsed = false;
-  next.pendingConquest = null;
-
-  next.log.push(`FORTIFY ${from} -> ${to} | moved ${amount}`);
-  next.log.push("Turn ended after fortify");
-  return next;
+  return advancePhase(next);
 }
