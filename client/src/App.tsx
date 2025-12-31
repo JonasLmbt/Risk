@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { TerritoryId } from "@risk/shared";
 import { useGame } from "./state/useGame";
 import { Board } from "./components/Board";
-import { currentMapLayout, BoardMode, CardKind, UiCard } from "@risk/shared";
+import { currentMapLayout, currentMap, BoardMode, CardKind, UiCard } from "@risk/shared";
 
 function isMyReinforcementTurn(game: any, playerId: string | null): boolean {
   return (
@@ -47,6 +47,18 @@ function isValidSet(cards: UiCard[]): boolean {
   const diff = nonJokers[0] !== nonJokers[1];
   return same || diff;
 }
+
+function colorForPlayerId(game: any, ownerId: string | null, fallback = "#eaeaea"): string {
+  if (!ownerId) return fallback;
+  const idx = game.players.findIndex((p: any) => p.id === ownerId);
+  const hue = idx >= 0 ? (idx * 137) % 360 : 0;
+  return `hsl(${hue} 70% 60%)`;
+}
+
+function displayName(p: any): string {
+  return p.name ?? p.displayName ?? p.id ?? "Player";
+}
+
 
 export default function App() {
   const { playerId, game, lastError, send } = useGame();
@@ -318,8 +330,55 @@ export default function App() {
 
       // ENTER: end phase with confirmation (press twice)
       if (e.key === "Enter") {
+        if (isTypingTarget(e.target)) return;
+
+        const running = !!game && game.status === "running";
+        const myTurnNow = running && game.currentPlayerId === playerId;
+
         if (!running || !myTurnNow) return;
-        if (game.pendingConquest) return;
+
+        // If you have other overlays, block Enter here
+        // if (isCardsOpen || showGameState) return;
+
+        // 1) Pending conquest confirm has top priority
+        if (game.pendingConquest && game.phase === "attack") {
+          e.preventDefault();
+
+          send({
+            type: "attack/move",
+            gameId,
+            from: game.pendingConquest.from,
+            to: game.pendingConquest.to,
+            amount: conquestMoveAmount,
+          });
+
+          // optional local cleanup (matches your button behavior)
+          setAttackFrom(null);
+          setAttackTo(null);
+          setAutoRoll(false);
+          return;
+        }
+
+        // 2) Fortify confirm
+        if (game.phase === "fortify" && fortifyFrom && fortifyTo) {
+          e.preventDefault();
+
+          send({
+            type: "fortify/move",
+            gameId,
+            from: fortifyFrom,
+            to: fortifyTo,
+            amount: fortifyAmount,
+          });
+
+          // optional local cleanup (matches your button behavior)
+          setFortifyFrom(null);
+          setFortifyTo(null);
+          return;
+        }
+
+        // 3) Otherwise: End phase confirm (press twice)
+        if (game.pendingConquest) return; // safety: don't end phase while pending conquest
 
         e.preventDefault();
 
@@ -328,7 +387,6 @@ export default function App() {
           return;
         }
 
-        // confirmed
         setConfirmEndPhaseOpen(false);
         send({ type: "turn/endPhase", gameId });
         return;
@@ -426,7 +484,7 @@ export default function App() {
                 onClick={() => send({ type: "game/join", gameId, name })}
                 disabled={!playerId}
               >
-                Join
+                Join / Host
               </button>
               <button style={buttonStyle} onClick={() => send({ type: "game/leave", gameId })} disabled={!game}>
                 Leave
@@ -609,6 +667,68 @@ export default function App() {
               >
                 Clear
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Players panel */}
+        {game && (
+          <div style={panelStyle}>
+            <div style={{ ...panelTitleStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Players</span>
+              <span style={{ fontSize: 12, opacity: 0.7 }}>{game.players.length}</span>
+            </div>
+
+            <div style={{ display: "grid", gap: 8 }}>
+              {game.players.map((p: any) => {
+                const isCurrent = game.status === "running" && game.currentPlayerId === p.id;
+                const isMe = p.id === playerId;
+
+                const chip = colorForPlayerId(game, p.id);
+
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      padding: "8px 10px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(0,0,0,0.10)",
+                      background: isCurrent ? "rgba(0,0,0,0.04)" : "transparent",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                      <div
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 999,
+                          background: chip,
+                          boxShadow: "0 0 0 3px rgba(0,0,0,0.05)",
+                          flex: "0 0 auto",
+                        }}
+                      />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {displayName(p)}{isMe ? " (You)" : ""}
+                        </div>
+
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>
+                          {game.status === "lobby" ? "In lobby" : isCurrent ? "Current turn" : "Waiting"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Optional: show troop count / territories owned if you have it */}
+                    <div style={{ fontSize: 12, opacity: 0.75, textAlign: "right" }}>
+                      <div style={{ fontWeight: 800 }}>{p.troops ?? ""}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -948,7 +1068,8 @@ function CardView({
   selected: boolean;
   onClick: () => void;
 }) {
-  const territoryName = card.territoryId ?? "Joker";
+  const territoryId = card.territoryId ?? "Joker";
+  const territoryName = currentMap.territories.find((t) => t.id === territoryId)?.name ?? "Joker";
 
   return (
     <button
