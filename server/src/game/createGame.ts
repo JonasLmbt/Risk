@@ -46,6 +46,7 @@ export function createGame(id: string): GameState {
     hostId: null,
     currentPlayerId: null,
     phase: "reinforcement",
+    setup: null,
     settings: structuredClone(DEFAULT_GAME_SETTINGS),
     territories,
     continents,

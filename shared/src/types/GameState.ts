@@ -3,19 +3,19 @@ import type { TerritoryState, ContinentState } from "./Map";
 import type { CardState } from "./Cards";
 import type { GameSettings } from "./GameSettings";
 
+export type GameStatus = "lobby" | "running" | "finished";
+
+export type Phase = "setup_claim" | "setup_place" | "reinforcement" | "attack" | "fortify";
+
+export type BoardMode = "none" | "setup_claim" | "setup_place" | "reinforcement" | "attack" | "fortify";
+
+export type CardKind = "infantry" | "cavalry" | "artillery" | "joker";
+
 export type Player = {
   id: PlayerId;
   name: string;
   connected: boolean;
 };
-
-export type GameStatus = "lobby" | "running" | "finished";
-
-export type Phase = "reinforcement" | "attack" | "fortify";
-
-export type BoardMode = "none" | "reinforcement" | "attack" | "fortify";
-
-export type CardKind = "infantry" | "cavalry" | "artillery" | "joker";
 
 export type BlizzardState = {
   blocked: TerritoryId[];
@@ -37,6 +37,10 @@ export type GameState = {
 
   currentPlayerId: PlayerId | null;
   phase: Phase;
+  setup: null | {
+    remainingByPlayer: Record<string, number>; // troops still to place in setup_place
+  };
+
 
   settings: GameSettings;
 

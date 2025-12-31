@@ -93,18 +93,32 @@ export default function App() {
 
   const boardMode: BoardMode =
     game?.status === "running" && isMyTurn
-      ? game.phase === "reinforcement"
-        ? "reinforcement"
-        : game.phase === "attack"
-          ? "attack"
-          : game.phase === "fortify"
-            ? "fortify"
-            : "none"
+      ? game.phase === "setup_claim"
+        ? "setup_claim"
+        : game.phase === "setup_place"
+          ? "setup_place"
+          : game.phase === "reinforcement"
+            ? "reinforcement"
+            : game.phase === "attack"
+              ? "attack"
+              : game.phase === "fortify"
+                ? "fortify"
+                : "none"
       : "none";
 
   function handleBoardSelect(id: TerritoryId) {
     setSelectedTerritory(id);
     if (!game || !playerId || !isMyTurn) return;
+
+    if (game.phase === "setup_claim") {
+      send({ type: "setup/claim", gameId, territoryId: id });
+      return;
+    }
+
+    if (game.phase === "setup_place") {
+      send({ type: "setup/place", gameId, territoryId: id });
+      return;
+    }
 
     if (game.phase === "reinforcement") {
       const owner = game.territories[id]?.ownerId;

@@ -7,6 +7,8 @@ import { attackRoll } from "../game/rules/attack";
 import { resolveConquestMove } from "../game/rules/resolveConquestMove";
 import { fortifyMove } from "../game/rules/fortify";
 import { tradeCards } from "../game/rules/tradeCards";
+import { setupClaim, setupPlace } from "../game/rules/setup";
+
 
 
 export function handleAction(envelope: ClientActionEnvelope): {
@@ -148,6 +150,25 @@ export function handleAction(envelope: ClientActionEnvelope): {
     setGame(action.gameId, next);
     return { gameId: action.gameId, newState: next };
   }
+
+  if (action.type === "setup/claim") {
+    const game = getGame(action.gameId);
+    if (!game) return { gameId: action.gameId, error: "Game not found." };
+
+    const next = setupClaim(game, playerId, action.territoryId as any);
+    setGame(action.gameId, next);
+    return { gameId: action.gameId, newState: next };
+  }
+
+  if (action.type === "setup/place") {
+    const game = getGame(action.gameId);
+    if (!game) return { gameId: action.gameId, error: "Game not found." };
+
+    const next = setupPlace(game, playerId, action.territoryId as any);
+    setGame(action.gameId, next);
+    return { gameId: action.gameId, newState: next };
+  }
+
 
   // Exhaustive check (if you add actions, TypeScript will complain here if not handled)
   const _exhaustive: never = action;
