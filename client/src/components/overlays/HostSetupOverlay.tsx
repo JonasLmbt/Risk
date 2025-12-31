@@ -68,7 +68,7 @@ function HostSetupPanel({
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>Game Setup</div>
+          <div style={{ fontWeight: 900, fontSize: 16 }}>Game Settings</div>
           <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>Configure the lobby before starting.</div>
         </div>
 

@@ -197,7 +197,7 @@ export function Hud(props: Props) {
               fontWeight: 800
             }}
           >
-            Game Setup
+            Game Settings
           </button>
         )}
       </div>

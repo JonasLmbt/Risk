@@ -1,5 +1,6 @@
 import type { GameState, Card, CardSymbol } from "@risk/shared";
 import { currentMap } from "@risk/shared";
+import { DEFAULT_GAME_SETTINGS } from "@risk/shared";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -45,22 +46,10 @@ export function createGame(id: string): GameState {
     hostId: null,
     currentPlayerId: null,
     phase: "reinforcement",
-    settings: {
-      maxPlayers: 4,
-      visibility: "private",
-      map: "world42",
-      turnDurationSec: 60,
-      blizzardEnabled: false,
-      blizzardBlockedTerritories: 3,
-      fogOfWarEnabled: false,
-      objective: "world_domination",
-      territorySelection: "draft",
-      troopPlacement: "draft_place",
-      initialTroopsMode: "standard",
-      initialTroopsCustom: 30,
-    },
+    settings: structuredClone(DEFAULT_GAME_SETTINGS),
     territories,
     continents,
+    blizzard: null,
     reinforcementPool: 0,
     reinforcementExplanation: "",
     pendingConquest: null,

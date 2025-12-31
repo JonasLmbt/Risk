@@ -152,6 +152,50 @@ export function Board({
 
   const isMyTurn = game.status === "running" && game.currentPlayerId === playerId;
 
+  const fogEnabled = !!(game as any).settings?.fogOfWarEnabled;
+
+  // Visible territories for this client (own + neighbors of own)
+  const visible = useMemo(() => {
+    if (!fogEnabled || !playerId) return null;
+
+    const mine: TerritoryId[] = [];
+    for (const [id, st] of Object.entries(game.territories) as Array<[TerritoryId, any]>) {
+      if (st?.ownerId === playerId) mine.push(id);
+    }
+
+    const set = new Set<TerritoryId>(mine);
+
+    for (const id of mine) {
+      for (const nb of neighborsOf(id)) set.add(nb);
+    }
+
+    return set;
+  }, [fogEnabled, playerId, game.territories]);
+
+  function isVisible(id: TerritoryId): boolean {
+    if (!fogEnabled) return true;
+    if (!playerId) return true; // spectator / not joined -> show all
+    return visible?.has(id) ?? true;
+  }
+
+  function continentHasVisibleTerritory(continentId: string): boolean {
+    if (!fogEnabled || !playerId) return true;
+    if (!visible) return true;
+
+    // currentMap has continents with territory ids (likely). If not, see note below.
+    const cont = (currentMap as any).continents?.find((x: any) => x.id === continentId);
+    const territoryIds: TerritoryId[] = cont?.territories ?? cont?.territoryIds ?? [];
+
+    return territoryIds.some((tid) => visible.has(tid));
+  }
+
+  const blocked = useMemo(() => {
+    const ids = (game as any).blizzard?.blocked as TerritoryId[] | undefined;
+    return new Set<TerritoryId>(ids ?? []);
+  }, [game]);
+  const isBlocked = (id: TerritoryId) => blocked.has(id);
+
+
   // ---------- Clickability / UI ----------
   const territoryUi = useMemo(() => {
     const ui = new Map<TerritoryId, { clickable: boolean; opacity: number; selected: boolean }>();
@@ -161,6 +205,20 @@ export function Board({
       let clickable = false;
       let opacity = 0.35;
       let selected = false;
+
+      const vis = isVisible(id);
+
+      if (fogEnabled && !vis) {
+        clickable = false;
+        selected = false;
+        opacity = 0.08;
+      }
+
+      if (isBlocked(id)) {
+        clickable = false;
+        selected = false;
+        opacity = Math.min(opacity, 0.25);
+      }
 
       if (!playerId || !isMyTurn || mode === "none") {
         clickable = false;
@@ -375,22 +433,47 @@ export function Board({
           ) : null}
 
           {currentMapLayout.territories.map((l) => {
+            const vis = isVisible(l.id);
             const id = l.id;
             const st = game.territories[id];
             const owner = st?.ownerId ?? null;
             const troops = st?.troops ?? 0;
 
             const ui = territoryUi.get(id)!;
-            const fill = colorForPlayer(game, owner);
+            const fill = vis ? colorForPlayer(game, owner) : "rgba(0,0,0,0.06)";
 
             const isHovered = hovered === id;
-            const hoverable = ui.clickable;
+            const hoverable = ui.clickable && vis;
 
             const opacity = hoverable && isHovered ? Math.min(1, ui.opacity + 0.25) : ui.opacity;
             const strokeWidth = (ui.selected ? 2.5 : 1.5) + (hoverable && isHovered ? 1.0 : 0);
 
             return (
               <g key={id}>
+                {/* Blizzard-Overlay */}
+                {isBlocked(id) && (
+                  <>
+                    <path
+                      d={l.d}
+                      fill="rgba(255,255,255,0.35)"
+                      stroke="rgba(0,0,0,0.15)"
+                      strokeWidth={1}
+                      style={{ pointerEvents: "none" }}
+                    />
+                    <text
+                      x={(l.labelX ?? 0)}
+                      y={(l.labelY ?? 0)}
+                      fontSize={14}
+                      fontWeight={900}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="rgba(0,0,0,0.45)"
+                      style={{ pointerEvents: "none" }}
+                    >
+                      ❄
+                    </text>
+                  </>
+                )}
                 <path
                   ref={(el) => {
                     if (el) pathRefs.current.set(id, el);
@@ -449,7 +532,7 @@ export function Board({
                         opacity: hoverable && isHovered ? 1 : 0.9,
                       }}
                     >
-                      {troops}
+                      {isVisible(id) ? (troops > 0 ? troops : "") : "?"}
                     </text>
                   );
                 })()}
@@ -459,6 +542,10 @@ export function Board({
 
           {currentMapLayout.continents?.map((c) => {
             const id = c.id;
+
+            const show = continentHasVisibleTerritory(id);
+            if (!show) return null;
+
             const st = game.continents[id];
             const owner = st?.ownerId ?? null;
 
@@ -477,7 +564,6 @@ export function Board({
                   strokeLinecap="round"
                   style={{ filter: "blur(3px)" }}
                 />
-
                 <path
                   d={c.d}
                   fill="none"
@@ -490,6 +576,7 @@ export function Board({
               </g>
             );
           })}
+
         </g>
       </svg>
     </div>

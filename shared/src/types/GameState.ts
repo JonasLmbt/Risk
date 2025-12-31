@@ -1,6 +1,7 @@
 import type { GameId, PlayerId, TerritoryId, ContinentId} from "./Ids";
 import type { TerritoryState, ContinentState } from "./Map";
 import type { CardState } from "./Cards";
+import type { GameSettings } from "./GameSettings";
 
 export type Player = {
   id: PlayerId;
@@ -15,6 +16,11 @@ export type Phase = "reinforcement" | "attack" | "fortify";
 export type BoardMode = "none" | "reinforcement" | "attack" | "fortify";
 
 export type CardKind = "infantry" | "cavalry" | "artillery" | "joker";
+
+export type BlizzardState = {
+  blocked: TerritoryId[];
+} | null;
+
 
 export type UiCard = {
   id: string;
@@ -38,6 +44,8 @@ export type GameState = {
   territories: Record<TerritoryId, TerritoryState>;
   continents: Record<ContinentId, ContinentState>;
 
+  blizzard: BlizzardState;
+
   // Reinforcement points available for current player in reinforcement phase.
   reinforcementPool: number;
   reinforcementExplanation: string;
@@ -54,31 +62,4 @@ export type GameState = {
   cards: CardState;
 
   log: string[];
-};
-
-export type Visibility = "public" | "private";
-export type MapId = "world42";
-export type Objective = "world_domination" | "secret_missions";
-export type TerritorySelection = "draft" | "random";
-export type TroopPlacement = "draft_place" | "auto";
-
-export type GameSettings = {
-  maxPlayers: 2 | 3 | 4 | 5 | 6;
-  visibility: Visibility;
-  map: MapId;
-
-  turnDurationSec: 30 | 45 | 60 | 90 | 120 | 180;
-
-  blizzardEnabled: boolean;
-  blizzardBlockedTerritories: number; // 0..N
-
-  fogOfWarEnabled: boolean;
-
-  objective: Objective;
-
-  territorySelection: TerritorySelection;
-  troopPlacement: TroopPlacement;
-
-  initialTroopsMode: "standard" | "custom";
-  initialTroopsCustom: number; // only when custom
 };

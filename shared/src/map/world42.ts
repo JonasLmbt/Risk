@@ -50,7 +50,7 @@ export const world42: MapDefinition = {
     { id: "T402", name: "India", neighbors: ["T400", "T401", "T406", "T408"] },
     { id: "T403", name: "Irkutsk", neighbors: ["T405", "T407", "T409", "T411"] },
     { id: "T404", name: "Japan", neighbors: ["T405", "T407"] }, 
-    { id: "T405", name: "Kamchatka", neighbors: ["T403", "T407", "T411", "T00"] },
+    { id: "T405", name: "Kamchatka", neighbors: ["T403", "T404", "T407", "T411", "T00"] },
     { id: "T406", name: "Middle East", neighbors: ["T400", "T402", "T24", "T25", "T31", "T32"] },
     { id: "T407", name: "Mongolia", neighbors: ["T401", "T403", "T404", "T409"] },
     { id: "T408", name: "Siam", neighbors: ["T401", "T402", "T51"] },

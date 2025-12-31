@@ -128,24 +128,23 @@ export function handleAction(envelope: ClientActionEnvelope): {
     if (game.status !== "lobby") return { gameId: action.gameId, error: "Game already started." };
     if (game.hostId !== playerId) return { gameId: action.gameId, error: "Only the host can configure." };
 
-    // Optional validation
     const next = structuredClone(game);
 
-    // max players validation
-    const maxPlayers = action.settings.maxPlayers;
-    if (next.players.length > maxPlayers) {
-      return { gameId: action.gameId, error: `Too many players for maxPlayers=${maxPlayers}.` };
+    // Validation (minimal)
+    if (next.players.length > action.settings.maxPlayers) {
+      return { gameId: action.gameId, error: "Too many players for that maxPlayers setting." };
     }
 
-    // blizzard sanity
-    if (!action.settings.blizzardEnabled) {
-      action.settings.blizzardBlockedTerritories = 0;
-    } else {
-      action.settings.blizzardBlockedTerritories = Math.max(0, Math.min(20, action.settings.blizzardBlockedTerritories));
-    }
+    // Normalize blizzard
+    const settings = structuredClone(action.settings);
+    if (!settings.blizzardEnabled) settings.blizzardBlockedTerritories = 0;
+    settings.blizzardBlockedTerritories = Math.max(0, Math.min(20, settings.blizzardBlockedTerritories));
 
-    next.settings = action.settings;
-    next.log.push(`Host updated settings`);
+    // Map is fixed for now
+    settings.map = "world42";
+
+    next.settings = settings;
+    next.log.push("Host updated settings");
     setGame(action.gameId, next);
     return { gameId: action.gameId, newState: next };
   }
