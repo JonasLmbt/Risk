@@ -19,6 +19,10 @@ export function handleAction(envelope: ClientActionEnvelope): {
   if (action.type === "game/join") {
     const game = getOrCreateGame(action.gameId);
 
+    if (game.players.length >= (game.settings?.maxPlayers ?? 6)) {
+      return { gameId: action.gameId, error: "Lobby is full." };
+    }
+
     if (game.status !== "lobby") {
       return { gameId: action.gameId, error: "Game already started." };
     }
@@ -118,7 +122,33 @@ export function handleAction(envelope: ClientActionEnvelope): {
     return { gameId: action.gameId, newState: next };
   }
 
+  if (action.type === "lobby/configure") {
+    const game = getGame(action.gameId);
+    if (!game) return { gameId: action.gameId, error: "Game not found." };
+    if (game.status !== "lobby") return { gameId: action.gameId, error: "Game already started." };
+    if (game.hostId !== playerId) return { gameId: action.gameId, error: "Only the host can configure." };
 
+    // Optional validation
+    const next = structuredClone(game);
+
+    // max players validation
+    const maxPlayers = action.settings.maxPlayers;
+    if (next.players.length > maxPlayers) {
+      return { gameId: action.gameId, error: `Too many players for maxPlayers=${maxPlayers}.` };
+    }
+
+    // blizzard sanity
+    if (!action.settings.blizzardEnabled) {
+      action.settings.blizzardBlockedTerritories = 0;
+    } else {
+      action.settings.blizzardBlockedTerritories = Math.max(0, Math.min(20, action.settings.blizzardBlockedTerritories));
+    }
+
+    next.settings = action.settings;
+    next.log.push(`Host updated settings`);
+    setGame(action.gameId, next);
+    return { gameId: action.gameId, newState: next };
+  }
 
   // Exhaustive check (if you add actions, TypeScript will complain here if not handled)
   const _exhaustive: never = action;

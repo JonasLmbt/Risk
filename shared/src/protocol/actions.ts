@@ -1,4 +1,5 @@
 import type { GameId, PlayerId, TerritoryId } from "../types/Ids";
+import type { GameSettings } from "../types/GameState";
 
 export type ClientAction =
   | {
@@ -49,6 +50,10 @@ export type ClientAction =
       type: "cards/trade"; 
       gameId: string; 
       cardIds: string[] 
+    }
+  | { type: "lobby/configure";
+      gameId: string;
+      settings: GameSettings 
     };
 
 
