@@ -1,2 +1,4 @@
 - Timer
 - Goals: World Domination / Secret missions
+- Player kill
+- More secret missions

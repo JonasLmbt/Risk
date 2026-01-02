@@ -1,6 +1,7 @@
 import type { GameState, TerritoryId } from "@risk/shared";
 import { currentMap } from "@risk/shared";
 import { assignContinents } from "./assignContinents";
+import { applyPostRules } from "./postRules";
 
 type RollResult = {
   attackerRolls: number[];
@@ -76,7 +77,7 @@ export function attackRoll(
 
   const resolved = resolveDice(attackerRolls, defenderRolls);
 
-  const next: GameState = structuredClone(state);
+  let next: GameState = structuredClone(state);
 
   next.territories[from].troops -= resolved.attackerLosses;
   next.territories[to].troops -= resolved.defenderLosses;
@@ -111,6 +112,6 @@ export function attackRoll(
   next.log.push(
     `ATTACK ${from} -> ${to} | Att:${resolved.attackerRolls.join(",")} vs Def:${resolved.defenderRolls.join(",")} | losses Att:${resolved.attackerLosses} Def:${resolved.defenderLosses}${conquered ? " | CONQUERED" : ""}`
   );
-
-  return assignContinents(next);
+  
+  return applyPostRules(assignContinents(next), next.currentPlayerId!);;
 }

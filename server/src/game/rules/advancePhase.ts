@@ -1,6 +1,7 @@
 import type { GameState, PlayerId } from "@risk/shared";
 import { calculateReinforcement } from "./calculateReinforcements";
 import { hasAnyAttackMove, hasAnyFortifyMove } from "./moves";
+import { applyPostRules } from "./postRules"; 
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -95,25 +96,19 @@ function endTurn(state: GameState): GameState {
 export function advancePhase(state: GameState): GameState {
   if (state.status !== "running") return state;
   if (!state.currentPlayerId) return state;
-
-  // Do not allow phase changes while a conquest move is pending
   if (state.pendingConquest) return state;
 
+  let next: GameState;
+
   if (state.phase === "reinforcement") {
-    // IMPORTANT: do NOT reset conqueredThisTurn here.
-    // It should reflect whether the player conquered during the turn
-    // and be reset when the turn ends (in endTurn()).
-    return tryEnterAttack(state);
+    next = tryEnterAttack(state);
+  } else if (state.phase === "attack") {
+    next = tryEnterFortify(state);
+  } else if (state.phase === "fortify") {
+    next = endTurn(state);
+  } else {
+    next = state;
   }
 
-  if (state.phase === "attack") {
-    return tryEnterFortify(state);
-  }
-
-  if (state.phase === "fortify") {
-    return endTurn(state);
-  }
-
-  // Safety fallback
-  return state;
+  return applyPostRules(next, null);
 }

@@ -2,6 +2,7 @@ import type { GameState, TerritoryId } from "@risk/shared";
 import { currentMap } from "@risk/shared";
 import { assignContinents } from "./assignContinents";
 import { calculateReinforcement } from "./calculateReinforcements";
+import { assignMissions, buildMissionDeck } from "./missions";
 
 export function startGame(state: GameState): GameState {
   if (state.status !== "lobby") return state;
@@ -9,6 +10,14 @@ export function startGame(state: GameState): GameState {
 
   let next: GameState = structuredClone(state);
   next.status = "running";
+
+  if (next.settings.objective === "secret_missions") {
+    const continentIds = (currentMap as any).continents?.map((c: any) => c.id) ?? [];
+    const deck = buildMissionDeck(next.players, continentIds);
+    const byPlayerId = assignMissions(next.players, deck, Math.random);
+
+    next.missions = { byPlayerId };
+  }
 
   // 1) Roll blizzard first so blocked territories can be excluded from setup.
   next.blizzard = initBlizzard(next);

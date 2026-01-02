@@ -2,8 +2,8 @@ export * from "./types/GameState";
 export * from "./types/Ids";
 export * from "./types/Cards";
 export * from "./types/Map";
+export * from "./types/GameSettings"
 export * from "./protocol/actions";
 export * from "./protocol/events";
 export * from "./utils/assert";
 export * from "./map/currentMap";
-export * from "./types/GameSettings"

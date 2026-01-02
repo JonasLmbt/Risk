@@ -7,6 +7,7 @@ import { Board } from "./components/Board/Board";
 import { Hud } from "./components/hud/Hud";
 
 import { CardsOverlay } from "./components/overlays/CardsOverlay";
+import { MissionsOverlay } from "./components/overlays/MissionsOverlay";
 import { ConfirmDialog } from "./components/overlays/ConfirmDialog";
 import { GameStateOverlay } from "./components/overlays/GameStateOverlay";
 
@@ -45,11 +46,19 @@ export default function App() {
   const [fortifyTo, setFortifyTo] = useState<TerritoryId | null>(null);
   const [fortifyAmount, setFortifyAmount] = useState<number>(1);
 
+  const [isMissionOpen, setIsMissionOpen] = useState(false);
+  const [missionShownKey, setMissionShownKey] = useState<string | null>(null);
+
   const canStart = game?.status === "lobby" && game.hostId === playerId;
   const isMyTurn = !!game && game.status === "running" && game.currentPlayerId === playerId;
   const isHost = !!game && game.hostId === playerId;
   const isLobby = game?.status === "lobby";
   const canConfigure = isHost && isLobby;
+  const myMission = useMemo(() => {
+    if (!game || !playerId) return null;
+    return (game as any).missions?.byPlayerId?.[playerId] ?? null;
+  }, [game, playerId]);
+
 
   useEffect(() => {
     if (canConfigure) setSetupOpen(true);
@@ -90,6 +99,18 @@ export default function App() {
       setFortifyTo(null);
     }
   }, [game?.phase, game?.currentPlayerId, game?.status, playerId]);
+
+  useEffect(() => {
+    if (!game || !playerId) return;
+    if (game.status !== "running") return;
+    if (!myMission) return;
+
+    const key = (game as any).id ?? gameId; // nimm game.id falls vorhanden
+    if (missionShownKey === key) return;
+
+    setMissionShownKey(key);
+    setIsMissionOpen(true);
+  }, [game?.status, gameId, playerId, myMission, missionShownKey]);
 
   const boardMode: BoardMode =
     game?.status === "running" && isMyTurn
@@ -297,30 +318,39 @@ export default function App() {
           </div>
         )}
 
-        {canShowCards && (
+        <div
+          style={{
+            position: "absolute",
+            left: 16,
+            bottom: 16,
+            display: "flex",
+            gap: 10,
+            pointerEvents: "auto"
+          }}
+        >
+          {canShowCards && (
+            <button
+              onClick={() => setIsCardsOpen(true)}
+              style={floatingButtonStyle}
+              title="Cards"
+            >
+              C
+            </button>
+          )}
+
           <button
-            onClick={() => setIsCardsOpen(true)}
+            onClick={() => setIsMissionOpen(true)}
             style={{
-              position: "absolute",
-              left: 16,
-              bottom: 16,
-              width: 54,
-              height: 54,
-              borderRadius: 999,
-              border: "1px solid rgba(0,0,0,0.15)",
-              background: "rgba(255,255,255,0.92)",
-              boxShadow: "0 10px 28px rgba(0,0,0,0.18)",
-              cursor: "pointer",
-              pointerEvents: "auto",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 800
+              ...floatingButtonStyle,
+              opacity: myMission ? 1 : 0.5,
+              cursor: myMission ? "pointer" : "not-allowed"
             }}
-            title="Cards"
+            title="Mission"
+            disabled={!myMission}
           >
-            C
+            M
           </button>
-        )}
+        </div>
 
         <CardsOverlay
           open={isCardsOpen}
@@ -332,6 +362,15 @@ export default function App() {
           onTrade={tradeInSelected}
           modalButtonStyle={modalButtonStyle}
         />
+
+        <MissionsOverlay
+          open={isMissionOpen}
+          onClose={() => setIsMissionOpen(false)}
+          mission={myMission}
+          modalButtonStyle={modalButtonStyle}
+          showIntroHint={missionShownKey === (game ? game.id : gameId)}
+        />
+
 
         <GameStateOverlay open={showGameState} onClose={() => setShowGameState(false)} game={game} />
 
@@ -426,3 +465,15 @@ export default function App() {
     </div>
   );
 }
+
+const floatingButtonStyle: React.CSSProperties = {
+  width: 54,
+  height: 54,
+  borderRadius: 999,
+  border: "1px solid rgba(0,0,0,0.15)",
+  background: "rgba(255,255,255,0.92)",
+  boxShadow: "0 10px 28px rgba(0,0,0,0.18)",
+  display: "grid",
+  placeItems: "center",
+  fontWeight: 800
+};

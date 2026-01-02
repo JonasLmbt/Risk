@@ -3,13 +3,38 @@ import type { TerritoryState, ContinentState } from "./Map";
 import type { CardState } from "./Cards";
 import type { GameSettings } from "./GameSettings";
 
-export type GameStatus = "lobby" | "running" | "finished";
 
 export type Phase = "setup_claim" | "setup_place" | "reinforcement" | "attack" | "fortify";
 
 export type BoardMode = "none" | "setup_claim" | "setup_place" | "reinforcement" | "attack" | "fortify";
 
 export type CardKind = "infantry" | "cavalry" | "artillery" | "joker";
+
+export type GameStatus = "lobby" | "running" | "finished";
+
+export type WinReason =
+  | { type: "world_domination" }
+  | { type: "mission"; missionId: string; title: string };
+
+export type WinState =
+  | { status: "none" }
+  | { status: "won"; winnerId: string; reason: WinReason };
+
+export type MissionType =
+  | { kind: "conquer_continents"; continents: string[] }
+  | { kind: "occupy_territories"; count: number; minTroopsEach?: number }
+  | { kind: "eliminate_player"; targetPlayerId: string };
+
+export type Mission = {
+  id: string;
+  title: string;
+  description: string;
+  type: MissionType;
+};
+
+export type MissionAssignment = {
+  byPlayerId: Record<string, Mission>;
+};
 
 export type Player = {
   id: PlayerId;
@@ -44,6 +69,9 @@ export type GameState = {
 
   settings: GameSettings;
 
+  win?: WinState;
+  missions?: MissionAssignment; 
+
   // Minimal board state to start: territories with owner + troops.
   territories: Record<TerritoryId, TerritoryState>;
   continents: Record<ContinentId, ContinentState>;
@@ -67,3 +95,4 @@ export type GameState = {
 
   log: string[];
 };
+
