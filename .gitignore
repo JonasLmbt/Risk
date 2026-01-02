@@ -11,11 +11,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# === Environment (API Keys etc.) ===
-.env
-.env.local
-.env.*.local
-
 # === Editor / System ===
 .vscode/
 .DS_Store
