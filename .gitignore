@@ -33,3 +33,5 @@ build/
 release/
 **/win-unpacked/
 *.log
+src/**/*.js
+src/**/*.js.map

@@ -3,16 +3,37 @@ import { Server } from "socket.io";
 import { z } from "zod";
 import type { ClientActionEnvelope, ServerEvent } from "@risk/shared";
 import { handleAction, makeStateEvent } from "./handlers/handleAction";
-import { getGame, setGame } from "./game/gameStore";
 
-const envelopeSchema: z.ZodType<ClientActionEnvelope> = z.object({
-  actionId: z.string(),
-  playerId: z.string(),
-  action: z.any()
-}) as any;
+const envelopeSchema: z.ZodType<ClientActionEnvelope> = z
+  .object({
+    actionId: z.string(),
+    playerId: z.string(),
+    action: z.any(),
+  }) as any;
+
+const PORT = Number(process.env.PORT ?? 3001);
+const HOST = process.env.HOST ?? "0.0.0.0";
 
 const server = http.createServer();
-const io = new Server(server, { cors: { origin: "*" } });
+
+// Optional: tiny health check for monitoring / debugging
+server.on("request", (req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("ok");
+  }
+});
+
+const corsOrigins = (process.env.CORS_ORIGIN ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const io = new Server(server, {
+  cors: {
+    origin: corsOrigins.length ? corsOrigins : true,
+  },
+});
 
 io.on("connection", (socket) => {
   const identified: ServerEvent = { type: "player/identified", playerId: socket.id };
@@ -27,14 +48,13 @@ io.on("connection", (socket) => {
     }
 
     const env = parsed.data;
-    // Force playerId to be socket.id (server-authoritative identity)
+
+    // Server-authoritative identity
     env.playerId = socket.id;
 
     const result = handleAction(env);
 
-    if (result.gameId) {
-      socket.join(result.gameId);
-    }
+    if (result.gameId) socket.join(result.gameId);
 
     if (result.error) {
       const evt: ServerEvent = { type: "game/error", gameId: result.gameId, message: result.error };
@@ -43,19 +63,11 @@ io.on("connection", (socket) => {
     }
 
     if (result.gameId && result.newState) {
-      // Join room if it's a join action
-      socket.join(result.gameId);
       io.to(result.gameId).emit("event", makeStateEvent(result.gameId, result.newState));
     }
   });
-
-  socket.on("disconnect", () => {
-    // Mark disconnected in any games where the player is present
-    // Minimal approach: scan games by known IDs isn't stored; so we do nothing here for now.
-    // We'll add proper reconnect later.
-  });
 });
 
-server.listen(3001, "0.0.0.0", () => {
-  console.log("Server listening on http://localhost:3001");
+server.listen(PORT, HOST, () => {
+  console.log(`Server listening on http://${HOST}:${PORT}`);
 });

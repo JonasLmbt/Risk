@@ -37,7 +37,7 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   turnDurationSec: 60,
 
   blizzardEnabled: false,
-  blizzardBlockedTerritories: 4,
+  blizzardBlockedTerritories: 3,
 
   fogOfWarEnabled: false,
 
